@@ -12,3 +12,7 @@ sqlite3
 passlib
 bcrypt
 email-validator
+nicegui
+fastapi
+reportlab
+bcrypt
