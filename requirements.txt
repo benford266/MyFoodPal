@@ -1,0 +1,14 @@
+fastapi
+nicegui
+uvicorn
+httpx
+pydantic
+python-multipart
+python-dotenv
+reportlab
+datetime
+sqlalchemy
+sqlite3
+passlib
+bcrypt
+email-validator
