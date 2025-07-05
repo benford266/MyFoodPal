@@ -31,7 +31,7 @@ def login_page():
         with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl'):
             # Logo and title
             ui.html('<div class="text-6xl text-center mb-6">🍽️</div>')
-            ui.html(f'<h1 class="text-2xl sm:text-3xl font-bold {theme["gradient_text"]} text-center mb-4">Welcome to FoodPal</h1>')
+            ui.html(f'<h1 class="text-2xl sm:text-3xl font-bold {theme["gradient_text"]} text-center mb-4">Welcome to MyFoodPal</h1>')
             ui.html(f'<p class="text-sm {theme["text_secondary"]} text-center mb-8">Your AI-powered recipe companion</p>')
             
             # Login/Register toggle
@@ -121,7 +121,7 @@ def login_page():
                                 )
                                 user = create_user(db, user_data)
                                 set_current_user(user)
-                                ui.notify(f'Welcome to FoodPal, {user.name}!', type='positive')
+                                ui.notify(f'Welcome to MyFoodPal, {user.name}!', type='positive')
                                 ui.navigate.to('/')
                             except Exception as e:
                                 ui.notify(f'Registration failed: {str(e)}', type='negative')
@@ -153,7 +153,7 @@ def main_page():
     with ui.column().classes(f'min-h-screen {theme["bg_primary"]} {theme["text_primary"]} p-4 sm:p-8'):
         # Header with logout
         with ui.row().classes('items-center justify-between w-full mb-8'):
-            ui.html(f'<h1 class="text-3xl sm:text-4xl font-bold {theme["gradient_text"]}">🍽️ FoodPal</h1>')
+            ui.html(f'<h1 class="text-3xl sm:text-4xl font-bold {theme["gradient_text"]}">🍽️ MyFoodPal</h1>')
             with ui.row().classes('items-center gap-4'):
                 ui.html(f'<span class="text-lg {theme["text_secondary"]}">{current_user["name"]}\'s Kitchen</span>')
                 with ui.row().classes('gap-2'):
@@ -332,7 +332,7 @@ def history_page():
                     '←',
                     on_click=lambda: ui.navigate.to('/')
                 ).classes(f'{theme["button_secondary"]} rounded-full w-12 h-12 text-xl').style('color: #1f2937 !important;')
-                ui.html(f'<h1 class="text-3xl font-bold {theme["gradient_text"]}">📚 Your Meal Plans</h1>')
+                ui.html(f'<h1 class="text-3xl font-bold {theme["gradient_text"]}">📚 My Meal Plans</h1>')
             
             # User info
             with ui.column().classes('text-right'):
