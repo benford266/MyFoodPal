@@ -55,11 +55,14 @@ def display_meal_plan_details(meal_plan, recipes: List[Dict[str, Any]], shopping
             
             with ui.column().classes('gap-6'):
                 for i, recipe in enumerate(recipes, 1):
-                    if "error" not in recipe:
-                        recipe_index = i - 1  # 0-based index for database
-                        current_rating = ratings_dict.get(recipe_index)
-                        
-                        with ui.card().classes(f'recipe-card {theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full'):
+                    # Skip if recipe is not a dict or has an error
+                    if not isinstance(recipe, dict) or "error" in recipe:
+                        continue
+                    
+                    recipe_index = i - 1  # 0-based index for database
+                    current_rating = ratings_dict.get(recipe_index)
+                    
+                    with ui.card().classes(f'recipe-card {theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full'):
                             # Recipe header with enhanced info  
                             with ui.column().classes('mb-6'):
                                 with ui.row().classes('items-center gap-4 mb-3'):

@@ -18,8 +18,22 @@ def display_recipes_and_shopping_list(container, recipes: List[Dict[str, Any]], 
             
             with ui.column().classes('gap-6'):
                 for i, recipe in enumerate(recipes, 1):
-                    if "error" not in recipe:
-                        with ui.card().classes(f'recipe-card {theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full'):
+                    # Handle error recipes
+                    if not isinstance(recipe, dict):
+                        with ui.card().classes(f'{theme["error_bg"]} {theme["border"]} rounded-3xl p-6 text-center'):
+                            ui.html('<div class="text-4xl mb-4">❌</div>')
+                            ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]} mb-4">Recipe {i} Generation Failed</h3>')
+                            ui.html(f'<p class="text-sm {theme["text_secondary"]}">Unexpected response format</p>')
+                        continue
+                    
+                    if "error" in recipe:
+                        with ui.card().classes(f'{theme["error_bg"]} {theme["border"]} rounded-3xl p-6 text-center'):
+                            ui.html('<div class="text-4xl mb-4">❌</div>')
+                            ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]} mb-4">Recipe {i} Generation Failed</h3>')
+                            ui.html(f'<p class="text-sm {theme["text_secondary"]}">{recipe.get("error", "Unknown error")}</p>')
+                        continue
+                    
+                    with ui.card().classes(f'recipe-card {theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full'):
                             # Recipe header with enhanced info
                             with ui.column().classes('mb-6'):
                                 with ui.row().classes('items-center gap-4 mb-3'):

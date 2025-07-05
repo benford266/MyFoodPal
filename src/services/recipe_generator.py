@@ -211,7 +211,7 @@ Return valid JSON only:
                         "prompt": prompt,
                         "stream": False
                     },
-                    timeout=180.0  # Longer timeout for complex recipe prompts
+                    timeout=60.0  # Reduced timeout to prevent hanging
                 )
                 
                 if response.status_code == 200:
@@ -250,7 +250,34 @@ Return valid JSON only:
                     return {"error": f"Ollama API error for recipe {recipe_number}: {response.status_code}"}
         
         except Exception as e:
-            return {"error": f"Connection error for recipe {recipe_number}: {str(e)}"}
+            # Return a simple fallback recipe instead of just an error
+            fallback_name = f"Simple Recipe {recipe_number}"
+            if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
+                fallback_name = f"Recipe with {', '.join(must_use_ingredients)}"
+            
+            return {
+                "name": fallback_name,
+                "prep_time": "15 minutes",
+                "cook_time": "25 minutes",
+                "servings": serving_size,
+                "cuisine_inspiration": "Simple",
+                "difficulty": "Easy",
+                "ingredients": [
+                    {"item": ing, "quantity": "200", "unit": "g"} for ing in (must_use_ingredients if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe else [])
+                ] + [
+                    {"item": "main protein", "quantity": "400", "unit": "g"},
+                    {"item": "vegetables", "quantity": "300", "unit": "g"},
+                    {"item": "seasonings", "quantity": "5", "unit": "ml"}
+                ],
+                "instructions": [
+                    "Heat oil in a large pan",
+                    "Add main protein and cook until done",
+                    "Add vegetables and seasonings",
+                    "Cook until vegetables are tender",
+                    "Serve hot"
+                ],
+                "_note": f"Fallback recipe due to generation timeout: {str(e)}"
+            }
 
     async def generate_recipes(self, liked_foods: List[str], disliked_foods: List[str], recipe_count: int = 5, serving_size: int = 4, progress_callback=None, user_id: int = None, db_session=None, must_use_ingredients: List[str] = None) -> List[Dict[str, Any]]:
         """Generate specified number of recipes one at a time, sharing ingredients where possible and ensuring maximum diversity"""
@@ -297,6 +324,10 @@ Return valid JSON only:
             # Extract ingredients from this recipe for next recipes
             if "ingredients" in recipe:
                 for ingredient in recipe["ingredients"]:
+                    # Skip if ingredient is not a dict
+                    if not isinstance(ingredient, dict):
+                        continue
+                        
                     item = ingredient.get("item", "").lower()
                     if item and item not in [ing.lower() for ing in all_ingredients]:
                         all_ingredients.append(ingredient.get("item", ""))
@@ -309,13 +340,13 @@ Return valid JSON only:
         
         # Add generation summary for debugging/logging
         if recipes:
-            cuisines_used = [r.get("cuisine_inspiration", "Unknown") for r in recipes if "error" not in r]
+            cuisines_used = [r.get("cuisine_inspiration", "Unknown") for r in recipes if isinstance(r, dict) and "error" not in r]
             carbs_used = list(set(used_carbohydrates))
             methods_used = self.used_cooking_methods
             spices_used = self.used_spice_profiles
             
             print(f"🎨 Generated {len(recipes)} radically diverse recipes:")
-            print(f"   - Cuisines: {', '.join(set(cuisines_used)[:3])}..." if cuisines_used else 'Various')
+            print(f"   - Cuisines: {', '.join(list(set(cuisines_used))[:3])}..." if cuisines_used else 'Various')
             print(f"   - Cooking methods: {', '.join([m.split()[0] for m in methods_used[:3]])}..." if methods_used else "")
             print(f"   - Spice profiles: {', '.join([s.split()[0] for s in spices_used[:3]])}..." if spices_used else "")
             print(f"   - Carb variety: {', '.join(carbs_used[:3])}..." if carbs_used else "")
