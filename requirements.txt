@@ -1,18 +1,25 @@
-fastapi
-nicegui
-uvicorn
-httpx
-pydantic
-python-multipart
-python-dotenv
-reportlab
-datetime
-sqlalchemy
-sqlite3
-passlib
-bcrypt
-email-validator
-nicegui
-fastapi
-reportlab
-bcrypt
+# Web Framework and UI
+fastapi>=0.104.0
+nicegui>=1.4.0
+uvicorn[standard]>=0.24.0
+
+# HTTP Client
+httpx>=0.25.0
+
+# Data Validation and Models
+pydantic>=2.5.0
+email-validator>=2.1.0
+
+# File Handling and Environment
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Password Hashing
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.1.0
+
+# PDF Generation
+reportlab>=4.0.0
