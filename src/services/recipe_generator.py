@@ -165,14 +165,21 @@ class RecipeGenerator:
                 must_use_examples.append(f'{{"item": "{ingredient}", "quantity": "200", "unit": "g"}}')
             ingredients_example = ',\n        '.join(must_use_examples + ['"item": "other ingredient", "quantity": "300", "unit": "g"'])
         
+        # Format user preferences for the prompt
+        likes_text = f"- PREFERS (try to include when possible): {', '.join(liked_foods)}" if liked_foods else "- PREFERS: No specific preferences - use any suitable ingredients"
+        dislikes_text = f"- MUST AVOID: {', '.join(disliked_foods)}" if disliked_foods else "- MUST AVOID: None"
+        
         prompt = f"""Create a dinner recipe in JSON format.
 
 {ingredients_requirement}
 
 User preferences:
-- LIKES: {', '.join(liked_foods)}
-- DISLIKES: {', '.join(disliked_foods)}
+{likes_text}
+{dislikes_text}
 - SERVES: {serving_size} people
+
+IMPORTANT: You can use ANY suitable ingredients for the recipe. The "PREFERS" list shows ingredients the user particularly likes, but you can add other ingredients that complement the dish. Only avoid ingredients in the "MUST AVOID" list.
+
 {existing_ingredients_text}
 
 Requirements:

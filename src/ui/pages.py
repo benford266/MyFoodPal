@@ -175,21 +175,22 @@ def main_page():
             # Left column - Settings
             with ui.column().classes('flex-1 max-w-md'):
                 with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8'):
-                    ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-6">🎯 Your Preferences</h2>')
+                    ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">🎯 Your Preferences</h2>')
+                    ui.html(f'<p class="text-sm {theme["text_secondary"]} mb-6">💡 <strong>Tip:</strong> Recipes can include any ingredients! "Love" preferences are favored when possible, "Avoid" foods are never used, and empty fields mean anything goes.</p>')
                     
                     # Load current preferences from user
                     db = next(get_db())
                     current_user_data = db.query(User).filter(User.id == current_user['id']).first()
                     
                     liked_foods_input = ui.textarea(
-                        'Foods You Love',
-                        placeholder='e.g., chicken, broccoli, pasta, garlic...',
+                        'Foods You Love (Optional) 💚',
+                        placeholder='e.g., chicken, broccoli, pasta, garlic... (recipes will try to include these when possible)',
                         value=current_user_data.liked_foods if current_user_data else ""
                     ).classes(f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full h-24')
                     
                     disliked_foods_input = ui.textarea(
-                        'Foods You Avoid',
-                        placeholder='e.g., mushrooms, seafood, spicy food...',
+                        'Foods You Avoid 🚫',
+                        placeholder='e.g., mushrooms, seafood, spicy food... (recipes will never include these)',
                         value=current_user_data.disliked_foods if current_user_data else ""
                     ).classes(f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full h-24')
                     
@@ -216,7 +217,7 @@ def main_page():
                     with ui.card().classes(f'{theme["success_bg"]} {theme["border"]} rounded-3xl p-6 sm:p-8 text-center'):
                         ui.html('<div class="text-4xl mb-4">👋</div>')
                         ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">Ready to Cook Something Amazing?</h2>')
-                        ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">Tell us what you like and we\'ll create personalized recipes with a smart shopping list!</p>')
+                        ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">We\'ll create diverse, delicious recipes! Share your preferences to personalize them, or leave blank for surprise recipes. We only avoid foods you specifically dislike.</p>')
                         
                         async def generate_recipes_handler():
                             # Update user preferences in database
