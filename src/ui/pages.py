@@ -143,81 +143,65 @@ def main_page():
     
     theme = get_theme_classes()
     
-    # Add viewport and Material Icons
+    # Add viewport
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    ui.add_head_html('<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">')
     
     # Create recipe generator
     recipe_generator = RecipeGenerator(OLLAMA_BASE_URL, OLLAMA_MODEL)
     
-    with ui.column().classes(f'min-h-screen {theme["bg_primary"]} {theme["text_primary"]} p-4 sm:p-8'):
-        # Header with logout
-        with ui.row().classes('items-center justify-between w-full mb-8'):
-            ui.html(f'<h1 class="text-3xl sm:text-4xl font-bold {theme["gradient_text"]}">🍽️ MyFoodPal</h1>')
-            with ui.row().classes('items-center gap-4'):
-                ui.html(f'<span class="text-lg {theme["text_secondary"]}">{current_user["name"]}\'s Kitchen</span>')
-                with ui.row().classes('gap-2'):
-                    ui.button(
-                        'Meal Plans',
-                        on_click=lambda: ui.navigate.to('/history')
-                    ).classes(f'{theme["button_secondary"]} rounded-xl px-3 py-2 text-sm').style('color: #1f2937 !important;')
-                    ui.button(
-                        'Recipe History',
-                        on_click=lambda: ui.navigate.to('/recipe-history')
-                    ).classes(f'{theme["button_secondary"]} rounded-xl px-3 py-2 text-sm').style('color: #1f2937 !important;')
-                ui.button(
-                    'Logout',
-                    on_click=lambda: [clear_current_user(), ui.navigate.to('/login')]
-                ).classes(f'{theme["button_secondary"]} rounded-xl px-4 py-2').style('color: #1f2937 !important;')
+    # Load current preferences from user
+    db = next(get_db())
+    current_user_data = db.query(User).filter(User.id == current_user['id']).first()
+    
+    # Clean, simple layout
+    with ui.column().classes('min-h-screen').style('background: #f8fafc;'):
         
-        # Main content area
-        with ui.row().classes('gap-8 w-full'):
-            # Left column - Settings
-            with ui.column().classes('flex-1 max-w-md'):
-                with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8'):
-                    ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">🎯 Your Preferences</h2>')
-                    ui.html(f'<p class="text-sm {theme["text_secondary"]} mb-6">💡 <strong>Tip:</strong> Recipes can include any ingredients! "Love" preferences are favored when possible, "Avoid" foods are never used, and empty fields mean anything goes.</p>')
-                    
-                    # Load current preferences from user
-                    db = next(get_db())
-                    current_user_data = db.query(User).filter(User.id == current_user['id']).first()
-                    
-                    liked_foods_input = ui.textarea(
-                        'Foods You Love (Optional) 💚',
-                        placeholder='e.g., chicken, broccoli, pasta, garlic... (recipes will try to include these when possible)',
-                        value=current_user_data.liked_foods if current_user_data else ""
-                    ).classes(f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full h-24')
-                    
-                    disliked_foods_input = ui.textarea(
-                        'Foods You Avoid 🚫',
-                        placeholder='e.g., mushrooms, seafood, spicy food... (recipes will never include these)',
-                        value=current_user_data.disliked_foods if current_user_data else ""
-                    ).classes(f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full h-24')
-                    
-                    must_use_input = ui.textarea(
-                        'Must Use (Expiring Soon) 🕐',
-                        placeholder='e.g., leftover chicken, spinach expiring tomorrow...',
-                        value=current_user_data.must_use_ingredients if hasattr(current_user_data, 'must_use_ingredients') and current_user_data.must_use_ingredients else ""
-                    ).classes(f'{theme["input_bg"]} rounded-xl border-2 border-orange-300 p-4 w-full h-24')
-                    
-                    with ui.row().classes('gap-4 w-full mt-4'):
-                        recipe_count_input = ui.number('Number of Recipes', value=5, min=1, max=10).classes(
-                            f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 flex-1'
-                        )
-                        serving_size_input = ui.number('Serving Size', value=4, min=1, max=12).classes(
-                            f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 flex-1'
-                        )
+        # Simple header
+        with ui.row().classes('w-full bg-white shadow-sm px-6 py-4 items-center justify-between'):
+            ui.label('MyFoodPal').classes('text-2xl font-bold text-gray-800')
+            with ui.row().classes('gap-3'):
+                ui.button('Meal Plans', on_click=lambda: ui.navigate.to('/history')).props('flat').classes('text-gray-600')
+                ui.button('History', on_click=lambda: ui.navigate.to('/recipe-history')).props('flat').classes('text-gray-600')
+                ui.button('Logout', on_click=lambda: [clear_current_user(), ui.navigate.to('/login')]).props('flat color=negative')
+        
+        # Main content
+        with ui.row().classes('flex-1 p-6 gap-6 max-w-6xl mx-auto w-full'):
             
-            # Right column - Results
-            with ui.column().classes('flex-2'):
+            # Left panel - preferences
+            with ui.card().classes('p-6').style('width: 400px; height: fit-content;'):
+                ui.label('Your Preferences').classes('text-lg font-semibold mb-4')
+                
+                liked_foods_input = ui.textarea(
+                    label='Foods You Love',
+                    placeholder='e.g., chicken, pasta, vegetables...',
+                    value=current_user_data.liked_foods if current_user_data else ""
+                ).classes('w-full mb-4').props('rows=3')
+                
+                disliked_foods_input = ui.textarea(
+                    label='Foods You Avoid', 
+                    placeholder='e.g., mushrooms, seafood...',
+                    value=current_user_data.disliked_foods if current_user_data else ""
+                ).classes('w-full mb-4').props('rows=3')
+                
+                must_use_input = ui.textarea(
+                    label='Must Use (Expiring Soon)',
+                    placeholder='e.g., leftover chicken, spinach...',
+                    value=current_user_data.must_use_ingredients if hasattr(current_user_data, 'must_use_ingredients') and current_user_data.must_use_ingredients else ""
+                ).classes('w-full mb-4').props('rows=2')
+                
+                with ui.row().classes('gap-4 w-full'):
+                    recipe_count_input = ui.number(label='Number of Recipes', value=5, min=1, max=10).classes('flex-1')
+                    serving_size_input = ui.number(label='Serving Size', value=4, min=1, max=12).classes('flex-1')
+            
+            # Right panel - results
+            with ui.column().classes('flex-1'):
                 results_container = ui.column().classes('w-full')
                 
                 with results_container:
-                    # Welcome message
-                    with ui.card().classes(f'{theme["success_bg"]} {theme["border"]} rounded-3xl p-6 sm:p-8 text-center'):
-                        ui.html('<div class="text-4xl mb-4">👋</div>')
-                        ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">Ready to Cook Something Amazing?</h2>')
-                        ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">We\'ll create diverse, delicious recipes! Share your preferences to personalize them, or leave blank for surprise recipes. We only avoid foods you specifically dislike.</p>')
+                    with ui.card().classes('p-8 text-center'):
+                        ui.icon('restaurant', size='4rem').classes('text-blue-500 mb-4')
+                        ui.label('Ready to Generate Recipes?').classes('text-2xl font-bold mb-4')
+                        ui.label('Tell us your preferences and we\'ll create personalized recipes with a shopping list.').classes('text-gray-600 mb-8')
                         
                         async def generate_recipes_handler():
                             # Update user preferences in database
@@ -232,13 +216,13 @@ def main_page():
                             except Exception as e:
                                 print(f"Error updating preferences: {e}")
                             
-                            # Clear results and show progress
+                            # Show progress
                             results_container.clear()
                             with results_container:
-                                with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 text-center'):
-                                    ui.html('<div class="text-4xl mb-4">🍳</div>')
-                                    ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">Cooking Up Your Recipes...</h2>')
-                                    progress_label = ui.html(f'<p class="text-lg {theme["text_secondary"]}">Initializing...</p>')
+                                with ui.card().classes('p-8 text-center'):
+                                    ui.spinner(size='lg').classes('mb-4')
+                                    ui.label('Generating Your Recipes...').classes('text-xl font-bold mb-4')
+                                    progress_label = ui.label('Getting started...').classes('text-gray-600 mb-4')
                                     progress_bar = ui.linear_progress(value=0).classes('w-full')
                             
                             # Generate recipes
@@ -248,8 +232,7 @@ def main_page():
                                 must_use_ingredients = [f.strip() for f in must_use_input.value.split(',') if f.strip()]
                                 
                                 async def progress_callback(message: str):
-                                    progress_label.content = f'<p class="text-lg {theme["text_secondary"]}">{message}</p>'
-                                    # Update progress bar based on recipe number
+                                    progress_label.text = message
                                     if "recipe" in message.lower():
                                         try:
                                             parts = message.split('/')
@@ -260,7 +243,6 @@ def main_page():
                                         except:
                                             pass
                                 
-                                # Get database session for history tracking
                                 db = next(get_db())
                                 
                                 recipes = await recipe_generator.generate_recipes(
@@ -268,15 +250,14 @@ def main_page():
                                     int(recipe_count_input.value), 
                                     int(serving_size_input.value),
                                     progress_callback,
-                                    current_user['id'],  # Pass user ID for history tracking
-                                    db,                  # Pass database session
-                                    must_use_ingredients # Pass must-use ingredients
+                                    current_user['id'],
+                                    db,
+                                    must_use_ingredients
                                 )
                                 
-                                # Generate shopping list
                                 shopping_list = generate_shopping_list(recipes)
                                 
-                                # Save meal plan to database
+                                # Save meal plan
                                 try:
                                     meal_plan_data = MealPlanCreate(
                                         name=f"Meal Plan - {datetime.now().strftime('%B %d, %Y')}",
@@ -289,7 +270,6 @@ def main_page():
                                         must_use_ingredients_snapshot=must_use_input.value
                                     )
                                     saved_meal_plan = create_meal_plan(db, meal_plan_data, current_user['id'])
-                                    print(f"Successfully saved meal plan with ID: {saved_meal_plan.id}")
                                 except Exception as e:
                                     print(f"Error saving meal plan: {e}")
                                 
@@ -300,15 +280,12 @@ def main_page():
                             except Exception as e:
                                 results_container.clear()
                                 with results_container:
-                                    with ui.card().classes(f'{theme["error_bg"]} {theme["border"]} rounded-3xl p-6 text-center'):
-                                        ui.html('<div class="text-4xl mb-4">❌</div>')
-                                        ui.html(f'<h2 class="text-xl font-bold {theme["text_primary"]} mb-4">Generation Failed</h2>')
-                                        ui.html(f'<p class="text-sm {theme["text_secondary"]}">{str(e)}</p>')
+                                    with ui.card().classes('p-6 text-center border-red-200').style('border-color: #fecaca;'):
+                                        ui.icon('error', size='3rem').classes('text-red-500 mb-4')
+                                        ui.label('Generation Failed').classes('text-lg font-bold text-red-700 mb-2')
+                                        ui.label(str(e)).classes('text-red-600')
                         
-                        ui.button(
-                            '✨ Generate My Recipes',
-                            on_click=generate_recipes_handler
-                        ).classes(f'{theme["button_primary"]} text-white text-xl font-bold py-4 px-8 rounded-2xl shadow-lg')
+                        ui.button('Generate Recipes', on_click=generate_recipes_handler).props('color=primary size=lg').classes('px-8')
 
 @ui.page('/history')
 def history_page():
@@ -318,65 +295,56 @@ def history_page():
         ui.navigate.to('/login')
         return
     
-    theme = get_theme_classes()
-    
-    # Add viewport and Material Icons
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    ui.add_head_html('<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">')
     
-    with ui.column().classes(f'min-h-screen {theme["bg_primary"]} {theme["text_primary"]} p-8'):
-        # Header
-        with ui.row().classes('items-center justify-between w-full mb-8'):
+    with ui.column().classes('min-h-screen').style('background: #f8fafc;'):
+        # Simple header
+        with ui.row().classes('w-full bg-white shadow-sm px-6 py-4 items-center justify-between'):
             with ui.row().classes('items-center gap-4'):
-                ui.button(
-                    '←',
-                    on_click=lambda: ui.navigate.to('/')
-                ).classes(f'{theme["button_secondary"]} rounded-full w-12 h-12 text-xl').style('color: #1f2937 !important;')
-                ui.html(f'<h1 class="text-3xl font-bold {theme["gradient_text"]}">📚 My Meal Plans</h1>')
-            
-            # User info
-            with ui.column().classes('text-right'):
-                ui.html(f'<span class="text-lg {theme["text_secondary"]}">{current_user["name"]}\'s Kitchen</span>')
+                ui.button(icon='arrow_back', on_click=lambda: ui.navigate.to('/')).props('flat round')
+                ui.label('My Meal Plans').classes('text-2xl font-bold text-gray-800')
+            ui.label(f'{current_user["name"]}\'s Kitchen').classes('text-gray-600')
         
-        # Load meal plans
-        try:
-            db = next(get_db())
-            meal_plans = get_user_meal_plans(db, current_user['id'], limit=20)
-            
-            if meal_plans:
-                ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">You\'ve created {len(meal_plans)} meal plans. Here are your recent creations:</p>')
+        # Content
+        with ui.column().classes('flex-1 p-6 max-w-4xl mx-auto w-full'):
+            try:
+                db = next(get_db())
+                meal_plans = get_user_meal_plans(db, current_user['id'], limit=20)
                 
-                with ui.column().classes('gap-6 w-full'):
+                if meal_plans:
+                    ui.label(f'You have {len(meal_plans)} meal plans').classes('text-lg text-gray-600 mb-6')
+                    
                     for meal_plan in meal_plans:
-                        with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-2xl p-6 cursor-pointer hover:shadow-lg transition-shadow').on('click', lambda e, plan_id=meal_plan.id: ui.navigate.to(f'/meal-plan/{plan_id}')):
-                            with ui.row().classes('items-start justify-between gap-6'):
+                        with ui.card().classes('p-6 mb-4 cursor-pointer hover:shadow-md').on('click', lambda e, plan_id=meal_plan.id: ui.navigate.to(f'/meal-plan/{plan_id}')):
+                            with ui.row().classes('items-start justify-between w-full'):
                                 with ui.column().classes('flex-1'):
-                                    ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]}">{meal_plan.name}</h3>')
-                                    ui.html(f'<p class="text-sm {theme["text_secondary"]}">{meal_plan.created_at.strftime("%B %d, %Y at %I:%M %p")}</p>')
+                                    ui.label(meal_plan.name).classes('text-xl font-bold mb-2')
+                                    ui.label(meal_plan.created_at.strftime("%B %d, %Y at %I:%M %p")).classes('text-gray-500 mb-4')
                                     
-                                    with ui.row().classes('gap-2 mt-3'):
-                                        ui.html(f'<span class="{theme["chip_bg"]} {theme["border"]} rounded-full px-3 py-1 text-sm">{meal_plan.recipe_count} recipes</span>')
-                                        ui.html(f'<span class="{theme["chip_bg"]} {theme["border"]} rounded-full px-3 py-1 text-sm">{meal_plan.serving_size} servings</span>')
+                                    with ui.row().classes('gap-4'):
+                                        ui.chip(f'{meal_plan.recipe_count} recipes', color='primary')
+                                        ui.chip(f'{meal_plan.serving_size} servings', color='secondary')
                                     
                                     if meal_plan.liked_foods_snapshot or meal_plan.disliked_foods_snapshot:
-                                        with ui.column().classes('mt-3 gap-1'):
+                                        with ui.column().classes('mt-4 gap-2'):
                                             if meal_plan.liked_foods_snapshot:
-                                                ui.html(f'<span class="{theme["text_secondary"]}">💚 Liked: {meal_plan.liked_foods_snapshot[:50]}...</span>')
+                                                ui.label(f'💚 Liked: {meal_plan.liked_foods_snapshot[:50]}...').classes('text-green-600 text-sm')
                                             if meal_plan.disliked_foods_snapshot:
-                                                ui.html(f'<span class="{theme["text_secondary"]}">🚫 Avoided: {meal_plan.disliked_foods_snapshot[:50]}...</span>')
-            else:
-                # No meal plans yet
-                with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-3xl p-8 text-center'):
-                    ui.html('<div class="text-6xl mb-6">📝</div>')
-                    ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">No Meal Plans Yet</h2>')
-                    ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">Start creating personalized recipes to see them here!</p>')
-                    ui.button(
-                        '✨ Create First Meal Plan',
-                        on_click=lambda: ui.navigate.to('/')
-                    ).classes(f'{theme["button_primary"]} text-white font-semibold py-3 px-6 rounded-xl')
-        
-        except Exception as e:
-            ui.notify(f'Error loading meal plans: {str(e)}', type='negative')
+                                                ui.label(f'🚫 Avoided: {meal_plan.disliked_foods_snapshot[:50]}...').classes('text-red-600 text-sm')
+                else:
+                    # No meal plans yet
+                    with ui.card().classes('p-12 text-center'):
+                        ui.icon('note_add', size='4rem').classes('text-gray-400 mb-4')
+                        ui.label('No Meal Plans Yet').classes('text-2xl font-bold text-gray-800 mb-4')
+                        ui.label('Start creating personalized recipes to see them here!').classes('text-gray-600 mb-6')
+                        ui.button('Create First Meal Plan', on_click=lambda: ui.navigate.to('/')).props('color=primary size=lg')
+            
+            except Exception as e:
+                ui.notify(f'Error loading meal plans: {str(e)}', type='negative')
+                with ui.card().classes('p-6 text-center'):
+                    ui.icon('error', size='3rem').classes('text-red-500 mb-4')
+                    ui.label('Error Loading Meal Plans').classes('text-lg font-bold text-red-700 mb-2')
+                    ui.label(str(e)).classes('text-red-600')
 
 @ui.page('/recipe-history')
 def recipe_history_page():
@@ -386,81 +354,64 @@ def recipe_history_page():
         ui.navigate.to('/login')
         return
     
-    theme = get_theme_classes()
-    
-    # Add viewport and Material Icons
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    ui.add_head_html('<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">')
     
-    with ui.column().classes(f'min-h-screen {theme["bg_primary"]} {theme["text_primary"]} p-8'):
-        # Header
-        with ui.row().classes('items-center justify-between w-full mb-8'):
+    with ui.column().classes('min-h-screen').style('background: #f8fafc;'):
+        # Simple header
+        with ui.row().classes('w-full bg-white shadow-sm px-6 py-4 items-center justify-between'):
             with ui.row().classes('items-center gap-4'):
-                ui.button(
-                    '←',
-                    on_click=lambda: ui.navigate.to('/')
-                ).classes(f'{theme["button_secondary"]} rounded-full w-12 h-12 text-xl').style('color: #1f2937 !important;')
-                ui.html(f'<h1 class="text-3xl font-bold {theme["gradient_text"]}">🍳 Your Recipe History</h1>')
-            
-            # User info
-            with ui.column().classes('text-right'):
-                ui.html(f'<span class="text-lg {theme["text_secondary"]}">{current_user["name"]}\'s Kitchen</span>')
+                ui.button(icon='arrow_back', on_click=lambda: ui.navigate.to('/')).props('flat round')
+                ui.label('Recipe History').classes('text-2xl font-bold text-gray-800')
+            ui.label(f'{current_user["name"]}\'s Kitchen').classes('text-gray-600')
         
-        # Load recipe history
-        try:
-            db = next(get_db())
-            from ..database.operations import get_user_recipe_history
-            recipe_history = get_user_recipe_history(db, current_user['id'], 30)
-            
-            if recipe_history:
-                ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">Your last {len(recipe_history)} unique recipes. We track these to ensure you never get repetitive meal plans!</p>')
+        # Content
+        with ui.column().classes('flex-1 p-6 max-w-4xl mx-auto w-full'):
+            try:
+                db = next(get_db())
+                from ..database.operations import get_user_recipe_history
+                recipe_history = get_user_recipe_history(db, current_user['id'], 30)
                 
-                with ui.column().classes('gap-4 w-full'):
+                if recipe_history:
+                    ui.label(f'Your last {len(recipe_history)} unique recipes. We track these to ensure variety in your meal plans!').classes('text-lg text-gray-600 mb-6')
+                    
                     for i, recipe in enumerate(recipe_history):
-                        with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-2xl p-6'):
-                            with ui.row().classes('items-start justify-between gap-6'):
+                        with ui.card().classes('p-6 mb-4'):
+                            with ui.row().classes('items-start gap-4 w-full'):
+                                ui.chip(f'#{len(recipe_history) - i}', color='primary')
                                 with ui.column().classes('flex-1'):
-                                    with ui.row().classes('items-center gap-3 mb-3'):
-                                        ui.html(f'<span class="{theme["chip_bg"]} {theme["border"]} rounded-full px-3 py-1 text-sm font-bold">#{len(recipe_history) - i}</span>')
-                                        ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]}">{recipe.recipe_name}</h3>')
+                                    ui.label(recipe.recipe_name).classes('text-xl font-bold mb-2')
+                                    ui.label(recipe.created_at.strftime("%B %d, %Y at %I:%M %p")).classes('text-gray-500 mb-4')
                                     
-                                    ui.html(f'<p class="text-sm {theme["text_secondary"]} mb-3">{recipe.created_at.strftime("%B %d, %Y at %I:%M %p")}</p>')
-                                    
-                                    # Show recipe diversity elements
-                                    with ui.row().classes('gap-2 mb-3 flex-wrap'):
-                                        # Cooking method
-                                        cooking_method = recipe.cooking_method.split()[0] if recipe.cooking_method else "Unknown"
-                                        ui.html(f'<span class="bg-blue-100 text-blue-800 rounded-full px-3 py-1 text-sm">🔥 {cooking_method.title()}</span>')
-                                        
-                                        # Spice profile
-                                        spice_profile = recipe.spice_profile.split()[0] if recipe.spice_profile else "Unknown"
-                                        ui.html(f'<span class="bg-green-100 text-green-800 rounded-full px-3 py-1 text-sm">🌶️ {spice_profile.title()}</span>')
-                                        
-                                        # Cuisine inspiration
-                                        cuisine = recipe.cuisine_inspiration.split()[0] if recipe.cuisine_inspiration else "Unknown"
-                                        ui.html(f'<span class="bg-purple-100 text-purple-800 rounded-full px-3 py-1 text-sm">🌍 {cuisine.title()}</span>')
+                                    # Recipe characteristics
+                                    with ui.row().classes('gap-2 mb-4 flex-wrap'):
+                                        if recipe.cooking_method:
+                                            cooking_method = recipe.cooking_method.split()[0] if recipe.cooking_method else "Unknown"
+                                            ui.chip(f'🔥 {cooking_method.title()}', color='blue')
+                                        if recipe.spice_profile:
+                                            spice_profile = recipe.spice_profile.split()[0] if recipe.spice_profile else "Unknown"
+                                            ui.chip(f'🌶️ {spice_profile.title()}', color='green')
+                                        if recipe.cuisine_inspiration:
+                                            cuisine = recipe.cuisine_inspiration.split()[0] if recipe.cuisine_inspiration else "Unknown"
+                                            ui.chip(f'🌍 {cuisine.title()}', color='purple')
                                     
                                     # Main ingredients
                                     if recipe.main_ingredients:
                                         ingredients_preview = recipe.main_ingredients[:60] + '...' if len(recipe.main_ingredients) > 60 else recipe.main_ingredients
-                                        ui.html(f'<span class="{theme["text_secondary"]} text-sm">🥘 Key ingredients: {ingredients_preview}</span>')
-            else:
-                # No recipe history yet
-                with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-3xl p-8 text-center'):
-                    ui.html('<div class="text-6xl mb-6">📖</div>')
-                    ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">No Recipe History Yet</h2>')
-                    ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">Start creating meal plans to build your recipe history! We\'ll track your recipes to ensure maximum variety.</p>')
-                    ui.button(
-                        '✨ Create First Meal Plan',
-                        on_click=lambda: ui.navigate.to('/')
-                    ).classes(f'{theme["button_primary"]} text-white font-semibold py-3 px-6 rounded-xl')
-        
-        except Exception as e:
-            ui.notify(f'Error loading recipe history: {str(e)}', type='negative')
-            with ui.card().classes(f'{theme["error_bg"]} {theme["border"]} rounded-3xl p-6 text-center'):
-                ui.html('<div class="text-4xl mb-4">❌</div>')
-                ui.html(f'<h2 class="text-xl font-bold {theme["text_primary"]} mb-4">Error Loading History</h2>')
-                ui.html(f'<p class="text-sm {theme["text_secondary"]}">{str(e)}</p>')
+                                        ui.label(f'🥘 Key ingredients: {ingredients_preview}').classes('text-gray-600 text-sm')
+                else:
+                    # No recipe history yet
+                    with ui.card().classes('p-12 text-center'):
+                        ui.icon('menu_book', size='4rem').classes('text-gray-400 mb-4')
+                        ui.label('No Recipe History Yet').classes('text-2xl font-bold text-gray-800 mb-4')
+                        ui.label('Start creating meal plans to build your recipe history! We\'ll track your recipes to ensure maximum variety.').classes('text-gray-600 mb-6')
+                        ui.button('Create First Meal Plan', on_click=lambda: ui.navigate.to('/')).props('color=primary size=lg')
+            
+            except Exception as e:
+                ui.notify(f'Error loading recipe history: {str(e)}', type='negative')
+                with ui.card().classes('p-6 text-center'):
+                    ui.icon('error', size='3rem').classes('text-red-500 mb-4')
+                    ui.label('Error Loading Recipe History').classes('text-lg font-bold text-red-700 mb-2')
+                    ui.label(str(e)).classes('text-red-600')
 
 @ui.page('/meal-plan/{meal_plan_id}')
 def meal_plan_detail_page(meal_plan_id: int):

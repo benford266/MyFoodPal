@@ -4,3 +4,4 @@ foodpal.db
 CLAUDE*
 __pycache__/*
 *.pyc
+.open

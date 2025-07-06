@@ -153,56 +153,53 @@ class RecipeGenerator:
             except Exception as e:
                 print(f"Warning: Could not load user history: {e}")
         
-        # Simplified prompt for smaller models
-        ingredients_requirement = ""
-        ingredients_example = '"item": "ingredient", "quantity": "500", "unit": "g"'
-        
+        # Create a much simpler, focused prompt that works better with smaller models
+        must_use_text = ""
         if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
-            ingredients_requirement = f"IMPORTANT: This recipe MUST include these ingredients: {', '.join(must_use_ingredients)}"
-            # Create explicit examples with must-use ingredients
-            must_use_examples = []
-            for ingredient in must_use_ingredients:
-                must_use_examples.append(f'{{"item": "{ingredient}", "quantity": "200", "unit": "g"}}')
-            ingredients_example = ',\n        '.join(must_use_examples + ['"item": "other ingredient", "quantity": "300", "unit": "g"'])
+            must_use_text = f"MUST INCLUDE: {', '.join(must_use_ingredients)}. "
         
-        # Format user preferences for the prompt
-        likes_text = f"- PREFERS (try to include when possible): {', '.join(liked_foods)}" if liked_foods else "- PREFERS: No specific preferences - use any suitable ingredients"
-        dislikes_text = f"- MUST AVOID: {', '.join(disliked_foods)}" if disliked_foods else "- MUST AVOID: None"
+        # Simplify preferences
+        preferences = []
+        if liked_foods:
+            preferences.append(f"Likes: {', '.join(liked_foods[:3])}")  # Limit to top 3
+        if disliked_foods:
+            preferences.append(f"Avoid: {', '.join(disliked_foods[:3])}")  # Limit to top 3
         
-        prompt = f"""Create a dinner recipe in JSON format.
+        preferences_text = ". ".join(preferences) if preferences else "No specific preferences"
+        
+        # Enhanced prompt for better recipe quality
+        prompt = f"""You are an expert chef creating a restaurant-quality dinner recipe. Be creative and detailed.
 
-{ingredients_requirement}
+Recipe requirements:
+- Serves {serving_size} people
+- {must_use_text}{preferences_text}
+- Style: {selected_inspiration.split()[0]} cuisine with {selected_spices.split()[0]} spices
+- Use specific ingredient names, not generic terms
+- Include detailed cooking instructions
+- Make it delicious and interesting
 
-User preferences:
-{likes_text}
-{dislikes_text}
-- SERVES: {serving_size} people
-
-IMPORTANT: You can use ANY suitable ingredients for the recipe. The "PREFERS" list shows ingredients the user particularly likes, but you can add other ingredients that complement the dish. Only avoid ingredients in the "MUST AVOID" list.
-
-{existing_ingredients_text}
-
-Requirements:
-- Cooking style: {selected_method}
-- Flavor profile: {selected_spices}
-- Use metric units (grams, ml)
-- Include prep and cook times
-
-Return valid JSON only:
+Respond with valid JSON only:
 {{
-    "name": "Recipe Name",
+    "name": "Specific Creative Recipe Name",
     "prep_time": "15 minutes",
-    "cook_time": "30 minutes",
+    "cook_time": "35 minutes", 
     "servings": {serving_size},
     "cuisine_inspiration": "{selected_inspiration}",
-    "difficulty": "Easy",
+    "difficulty": "Medium",
     "ingredients": [
-        {ingredients_example}
+        {{"item": "specific protein name", "quantity": "600", "unit": "g"}},
+        {{"item": "specific vegetable", "quantity": "400", "unit": "g"}},
+        {{"item": "specific carb/starch", "quantity": "300", "unit": "g"}},
+        {{"item": "specific herbs/spices", "quantity": "2", "unit": "tbsp"}},
+        {{"item": "cooking fat/oil", "quantity": "30", "unit": "ml"}},
+        {{"item": "aromatics", "quantity": "100", "unit": "g"}}
     ],
     "instructions": [
-        "Step 1: Prepare ingredients",
-        "Step 2: Cook main components",
-        "Step 3: Combine and serve"
+        "Detailed prep step with specific techniques",
+        "Specific cooking method and timing for protein",
+        "Detailed vegetable cooking with techniques", 
+        "Assembly and finishing steps",
+        "Plating and serving suggestions"
     ]
 }}"""
         
@@ -218,7 +215,7 @@ Return valid JSON only:
                         "prompt": prompt,
                         "stream": False
                     },
-                    timeout=60.0  # Reduced timeout to prevent hanging
+                    timeout=180.0  # Increased timeout for better recipe generation
                 )
                 
                 if response.status_code == 200:
