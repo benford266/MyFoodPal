@@ -11,195 +11,72 @@ class RecipeGenerator:
     
     def reset_diversity_tracking(self):
         """Reset diversity tracking for a new meal plan"""
-        self.used_cooking_methods = []
-        self.used_spice_profiles = []
-        self.used_sauce_bases = []
         self.used_cooking_inspirations = []
     
     async def generate_single_recipe(self, recipe_number: int, liked_foods: List[str], disliked_foods: List[str], 
                                    existing_ingredients: List[str] = None, progress_callback=None, total_recipes: int = 5, serving_size: int = 4, used_carbs: List[str] = None, user_id: int = None, db_session=None, must_use_ingredients: List[str] = None) -> Dict[str, Any]:
         """Generate a single recipe, optionally using existing ingredients"""
         
-        existing_ingredients_text = ""
-        if existing_ingredients:
-            existing_ingredients_text = f"""
-        SHARED INGREDIENTS TO USE (if possible): {', '.join(existing_ingredients)}
-        Try to incorporate some of these ingredients to minimize shopping."""
-        
-        # Add must-use ingredients section - only for the designated recipe
-        must_use_text = ""
-        if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
-            must_use_text = f"""
-- MUST USE THESE INGREDIENTS: {', '.join(must_use_ingredients)}
-- REQUIREMENT: Include ALL of these ingredients in the recipe
-- Build the recipe around these specific ingredients"""
-        
-        carb_variety_text = ""
-        if used_carbs:
-            carb_variety_text = f"""
-        CARBOHYDRATE VARIETY REQUIREMENT:
-        These carbohydrates have already been used in other recipes: {', '.join(used_carbs)}
-        Please choose a DIFFERENT carbohydrate base for this recipe to add variety.
-        Carbohydrate options include: rice, pasta, potatoes, quinoa, bulgur, couscous, polenta, bread, noodles, barley, sweet potatoes, lentils, chickpeas, beans, or other grains/starches."""
-        
-        # Add creativity elements with radical diversity
-        cooking_methods = [
-            "slow-braised in aromatic liquids",
-            "high-heat seared and roasted",
-            "marinated and grilled with char marks",
-            "poached gently in flavored broths",
-            "smoked low and slow",
-            "pan-fried with crispy coating",
-            "steamed with aromatic herbs",
-            "confit in flavored oils",
-            "blackened with spice crusts",
-            "sous-vide with precise temperature control"
-        ]
-        
-        spice_profiles = [
-            "Mediterranean herbs (oregano, thyme, rosemary, basil)",
-            "Middle Eastern spices (sumac, za'atar, baharat, harissa)",
-            "Asian five-spice and aromatics (star anise, ginger, garlic, soy)",
-            "Indian curry spices (turmeric, cumin, coriander, garam masala)",
-            "Mexican heat and smokiness (chipotle, ancho, cumin, lime)",
-            "North African warmth (ras el hanout, preserved lemon, olives)",
-            "French herbes de Provence and wine reductions",
-            "Caribbean jerk spices (allspice, scotch bonnet, thyme)",
-            "Scandinavian dill and juniper with citrus",
-            "Peruvian aji peppers and tropical fruits"
-        ]
-        
-        sauce_bases = [
-            "tomato-based sauces with herbs",
-            "cream or coconut milk reductions",
-            "citrus and herb marinades",
-            "fermented bean pastes and umami",
-            "wine and stock reductions",
-            "nut-based sauces and pestos",
-            "vinegar-based pickled accompaniments",
-            "fruit-based chutneys and salsas",
-            "yogurt and herb cooling sauces",
-            "oil-based infusions and drizzles"
-        ]
-        
-        cooking_inspirations = [
-            "Japanese precision and umami depth",
-            "Italian rustic simplicity and quality ingredients",
-            "Indian spice layering and aromatics",
-            "Mexican bold flavors and heat",
-            "French classical techniques and elegance",
-            "Thai balance of sweet, sour, salty, spicy",
-            "Middle Eastern hospitality and exotic spices",
-            "Korean fermentation and bold flavors",
-            "Peruvian fresh ingredients and aji peppers",
-            "Moroccan tagine cooking and warm spices"
-        ]
-        
+        # Simplified cuisine/style selection
+        cuisines = ["Italian", "Asian", "Mexican", "Mediterranean", "Indian", "French", "Thai", "Middle Eastern"]
         import random
         
         # Get previously used elements to avoid repetition
-        used_methods = getattr(self, 'used_cooking_methods', []) if hasattr(self, 'used_cooking_methods') else []
-        used_spices = getattr(self, 'used_spice_profiles', []) if hasattr(self, 'used_spice_profiles') else []
-        used_sauces = getattr(self, 'used_sauce_bases', []) if hasattr(self, 'used_sauce_bases') else []
         used_inspirations = getattr(self, 'used_cooking_inspirations', []) if hasattr(self, 'used_cooking_inspirations') else []
         
-        # Select diverse elements, avoiding recent ones
-        available_methods = [m for m in cooking_methods if m not in used_methods[-3:]]
-        available_spices = [s for s in spice_profiles if s not in used_spices[-3:]]
-        available_sauces = [s for s in sauce_bases if s not in used_sauces[-3:]]
-        available_inspirations = [i for i in cooking_inspirations if i not in used_inspirations[-3:]]
+        # Select diverse cuisine, avoiding recent ones
+        available_cuisines = [c for c in cuisines if c not in used_inspirations[-3:]]
+        if not available_cuisines: available_cuisines = cuisines
         
-        # Fall back to full list if we've used too many
-        if not available_methods: available_methods = cooking_methods
-        if not available_spices: available_spices = spice_profiles
-        if not available_sauces: available_sauces = sauce_bases
-        if not available_inspirations: available_inspirations = cooking_inspirations
-        
-        selected_method = random.choice(available_methods)
-        selected_spices = random.choice(available_spices)
-        selected_sauce = random.choice(available_sauces)
-        selected_inspiration = random.choice(available_inspirations)
+        selected_cuisine = random.choice(available_cuisines)
         
         # Track used elements
-        if not hasattr(self, 'used_cooking_methods'): self.used_cooking_methods = []
-        if not hasattr(self, 'used_spice_profiles'): self.used_spice_profiles = []
-        if not hasattr(self, 'used_sauce_bases'): self.used_sauce_bases = []
         if not hasattr(self, 'used_cooking_inspirations'): self.used_cooking_inspirations = []
+        self.used_cooking_inspirations.append(selected_cuisine)
         
-        self.used_cooking_methods.append(selected_method)
-        self.used_spice_profiles.append(selected_spices)
-        self.used_sauce_bases.append(selected_sauce)
-        self.used_cooking_inspirations.append(selected_inspiration)
-        
-        # Add user history context if available
-        history_context = ""
-        if user_id and db_session:
-            try:
-                from ..database.operations import get_user_recipe_history
-                recent_history = get_user_recipe_history(db_session, user_id, 10)
-                if recent_history:
-                    recent_names = [h.recipe_name for h in recent_history[:5]]
-                    recent_methods = [h.cooking_method.split()[0] for h in recent_history[:5]]
-                    recent_spices = [h.spice_profile.split()[0] for h in recent_history[:5]]
-                    
-                    history_context = f"""
-        ⚠️ AVOID REPEATING RECENT USER HISTORY:
-        Recent recipe names: {', '.join(recent_names)}
-        Recent cooking methods: {', '.join(set(recent_methods))}
-        Recent spice profiles: {', '.join(set(recent_spices))}
-        
-        CRITICAL: This recipe must be completely different from these recent recipes.
-        Use different name patterns, cooking techniques, and spice combinations."""
-            except Exception as e:
-                print(f"Warning: Could not load user history: {e}")
-        
-        # Create a much simpler, focused prompt that works better with smaller models
+        # Build simplified prompt components
         must_use_text = ""
         if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
             must_use_text = f"MUST INCLUDE: {', '.join(must_use_ingredients)}. "
         
-        # Simplify preferences
+        # Simplify preferences - only use top 2 of each
         preferences = []
         if liked_foods:
-            preferences.append(f"Likes: {', '.join(liked_foods[:3])}")  # Limit to top 3
+            preferences.append(f"Include: {', '.join(liked_foods[:2])}")
         if disliked_foods:
-            preferences.append(f"Avoid: {', '.join(disliked_foods[:3])}")  # Limit to top 3
+            preferences.append(f"Avoid: {', '.join(disliked_foods[:2])}")
         
-        preferences_text = ". ".join(preferences) if preferences else "No specific preferences"
+        preferences_text = ". ".join(preferences) if preferences else ""
         
-        # Enhanced prompt for better recipe quality
-        prompt = f"""You are an expert chef creating a restaurant-quality dinner recipe. Be creative and detailed.
+        # Add carb variety constraint
+        carb_text = ""
+        if used_carbs:
+            carb_text = f"Use different carb than: {', '.join(used_carbs[:2])}. "
+        
+        # Simplified prompt - much shorter
+        prompt = f"""Create a {selected_cuisine} dinner recipe for {serving_size} people. {must_use_text}{carb_text}{preferences_text}
 
-Recipe requirements:
-- Serves {serving_size} people
-- {must_use_text}{preferences_text}
-- Style: {selected_inspiration.split()[0]} cuisine with {selected_spices.split()[0]} spices
-- Use specific ingredient names, not generic terms
-- Include detailed cooking instructions
-- Make it delicious and interesting
-
-Respond with valid JSON only:
+JSON format:
 {{
-    "name": "Specific Creative Recipe Name",
+    "name": "Creative Recipe Name",
     "prep_time": "15 minutes",
-    "cook_time": "35 minutes", 
+    "cook_time": "30 minutes", 
     "servings": {serving_size},
-    "cuisine_inspiration": "{selected_inspiration}",
+    "cuisine_inspiration": "{selected_cuisine}",
     "difficulty": "Medium",
     "ingredients": [
-        {{"item": "specific protein name", "quantity": "600", "unit": "g"}},
-        {{"item": "specific vegetable", "quantity": "400", "unit": "g"}},
-        {{"item": "specific carb/starch", "quantity": "300", "unit": "g"}},
-        {{"item": "specific herbs/spices", "quantity": "2", "unit": "tbsp"}},
-        {{"item": "cooking fat/oil", "quantity": "30", "unit": "ml"}},
-        {{"item": "aromatics", "quantity": "100", "unit": "g"}}
+        {{"item": "protein", "quantity": "600", "unit": "g"}},
+        {{"item": "vegetable", "quantity": "400", "unit": "g"}},
+        {{"item": "carb", "quantity": "300", "unit": "g"}},
+        {{"item": "seasonings", "quantity": "2", "unit": "tbsp"}},
+        {{"item": "oil", "quantity": "30", "unit": "ml"}}
     ],
     "instructions": [
-        "Detailed prep step with specific techniques",
-        "Specific cooking method and timing for protein",
-        "Detailed vegetable cooking with techniques", 
-        "Assembly and finishing steps",
-        "Plating and serving suggestions"
+        "Prep ingredients",
+        "Cook protein",
+        "Cook vegetables", 
+        "Combine and season",
+        "Serve"
     ]
 }}"""
         
@@ -215,7 +92,7 @@ Respond with valid JSON only:
                         "prompt": prompt,
                         "stream": False
                     },
-                    timeout=180.0  # Increased timeout for better recipe generation
+                    timeout=60.0  # Reduced timeout for simplified prompt
                 )
                 
                 if response.status_code == 200:
@@ -231,7 +108,7 @@ Respond with valid JSON only:
                             # Check if too similar to recent recipes
                             is_similar = check_recipe_similarity(
                                 db_session, user_id, recipe, 
-                                selected_method, selected_spices, selected_sauce, selected_inspiration
+                                "simplified", "simplified", "simplified", selected_cuisine
                             )
                             
                             if is_similar:
@@ -242,7 +119,7 @@ Respond with valid JSON only:
                                 # Save to history for future reference
                                 save_recipe_to_history(
                                     db_session, user_id, recipe,
-                                    selected_method, selected_spices, selected_sauce, selected_inspiration
+                                    "simplified", "simplified", "simplified", selected_cuisine
                                 )
                                 print(f"✅ Recipe {recipe_number} saved to user history")
                                 
@@ -346,13 +223,10 @@ Respond with valid JSON only:
         if recipes:
             cuisines_used = [r.get("cuisine_inspiration", "Unknown") for r in recipes if isinstance(r, dict) and "error" not in r]
             carbs_used = list(set(used_carbohydrates))
-            methods_used = self.used_cooking_methods
-            spices_used = self.used_spice_profiles
+            inspirations_used = self.used_cooking_inspirations
             
-            print(f"🎨 Generated {len(recipes)} radically diverse recipes:")
+            print(f"🎨 Generated {len(recipes)} diverse recipes:")
             print(f"   - Cuisines: {', '.join(list(set(cuisines_used))[:3])}..." if cuisines_used else 'Various')
-            print(f"   - Cooking methods: {', '.join([m.split()[0] for m in methods_used[:3]])}..." if methods_used else "")
-            print(f"   - Spice profiles: {', '.join([s.split()[0] for s in spices_used[:3]])}..." if spices_used else "")
             print(f"   - Carb variety: {', '.join(carbs_used[:3])}..." if carbs_used else "")
             
             if must_use_ingredients and hasattr(self, '_must_use_recipe'):
