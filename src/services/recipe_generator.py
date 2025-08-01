@@ -53,32 +53,43 @@ class RecipeGenerator:
         if used_carbs:
             carb_text = f"Use different carb than: {', '.join(used_carbs[:2])}. "
         
-        # Simplified prompt - much shorter
-        prompt = f"""Create a {selected_cuisine} dinner recipe for {serving_size} people. {must_use_text}{carb_text}{preferences_text}
+        # Enhanced prompt with better context and guidance
+        prompt = f"""You are a professional chef creating a delicious {selected_cuisine} dinner recipe for {serving_size} people.
 
-JSON format:
+REQUIREMENTS:
+- Create a complete, practical recipe that can be cooked at home
+- {must_use_text}{carb_text}{preferences_text}
+- Use realistic ingredient quantities and cooking times
+- Provide clear, step-by-step instructions
+- Ensure the recipe is balanced and nutritious
+
+RESPONSE FORMAT: Return ONLY valid JSON with no additional text or explanations.
+
 {{
-    "name": "Creative Recipe Name",
-    "prep_time": "15 minutes",
-    "cook_time": "30 minutes", 
+    "name": "Descriptive Recipe Name (e.g., 'Garlic Herb Grilled Chicken with Roasted Vegetables')",
+    "prep_time": "realistic prep time (e.g., '15 minutes')",
+    "cook_time": "realistic cooking time (e.g., '25 minutes')", 
     "servings": {serving_size},
     "cuisine_inspiration": "{selected_cuisine}",
-    "difficulty": "Medium",
+    "difficulty": "Easy/Medium/Hard",
     "ingredients": [
-        {{"item": "protein", "quantity": "600", "unit": "g"}},
-        {{"item": "vegetable", "quantity": "400", "unit": "g"}},
-        {{"item": "carb", "quantity": "300", "unit": "g"}},
-        {{"item": "seasonings", "quantity": "2", "unit": "tbsp"}},
-        {{"item": "oil", "quantity": "30", "unit": "ml"}}
+        {{"item": "specific ingredient name", "quantity": "precise amount", "unit": "g/ml/tbsp/tsp/cup/piece"}},
+        {{"item": "main protein (chicken/beef/fish/tofu)", "quantity": "400-600", "unit": "g"}},
+        {{"item": "fresh vegetables (be specific)", "quantity": "200-400", "unit": "g"}},
+        {{"item": "carbohydrate (rice/pasta/potatoes)", "quantity": "200-300", "unit": "g"}},
+        {{"item": "seasonings/spices (be specific)", "quantity": "1-2", "unit": "tsp"}},
+        {{"item": "cooking oil/fat", "quantity": "15-30", "unit": "ml"}}
     ],
     "instructions": [
-        "Prep ingredients",
-        "Cook protein",
-        "Cook vegetables", 
-        "Combine and season",
-        "Serve"
+        "Step 1: Detailed preparation instructions with timing",
+        "Step 2: Cooking method with temperature/heat level",
+        "Step 3: Specific cooking techniques and visual cues",
+        "Step 4: How to combine ingredients properly",
+        "Step 5: Final preparation and serving suggestions"
     ]
-}}"""
+}}
+
+Generate a complete, authentic {selected_cuisine} recipe now:"""
         
         try:
             if progress_callback:
@@ -142,28 +153,41 @@ JSON format:
             if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
                 fallback_name = f"Recipe with {', '.join(must_use_ingredients)}"
             
+            # Create a more detailed fallback recipe
+            fallback_ingredients = []
+            
+            # Add must-use ingredients if applicable
+            if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
+                for ing in must_use_ingredients:
+                    fallback_ingredients.append({"item": ing, "quantity": "200", "unit": "g"})
+            
+            # Add basic recipe components
+            fallback_ingredients.extend([
+                {"item": "chicken breast or protein of choice", "quantity": "500", "unit": "g"},
+                {"item": "mixed vegetables (carrots, bell peppers, onions)", "quantity": "300", "unit": "g"},
+                {"item": "rice or pasta", "quantity": "250", "unit": "g"},
+                {"item": "olive oil", "quantity": "30", "unit": "ml"},
+                {"item": "salt and pepper", "quantity": "1", "unit": "tsp"},
+                {"item": "garlic powder", "quantity": "1", "unit": "tsp"}
+            ])
+            
             return {
-                "name": fallback_name,
+                "name": f"Simple Home-Style {selected_cuisine} Dinner",
                 "prep_time": "15 minutes",
                 "cook_time": "25 minutes",
                 "servings": serving_size,
-                "cuisine_inspiration": "Simple",
+                "cuisine_inspiration": selected_cuisine,
                 "difficulty": "Easy",
-                "ingredients": [
-                    {"item": ing, "quantity": "200", "unit": "g"} for ing in (must_use_ingredients if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe else [])
-                ] + [
-                    {"item": "main protein", "quantity": "400", "unit": "g"},
-                    {"item": "vegetables", "quantity": "300", "unit": "g"},
-                    {"item": "seasonings", "quantity": "5", "unit": "ml"}
-                ],
+                "ingredients": fallback_ingredients,
                 "instructions": [
-                    "Heat oil in a large pan",
-                    "Add main protein and cook until done",
-                    "Add vegetables and seasonings",
-                    "Cook until vegetables are tender",
-                    "Serve hot"
+                    "Heat olive oil in a large skillet over medium-high heat",
+                    "Season protein with salt, pepper, and garlic powder, then cook for 6-8 minutes until golden",
+                    "Add chopped vegetables to the pan and cook for 5-7 minutes until tender",
+                    "Meanwhile, prepare rice or pasta according to package instructions",
+                    "Combine cooked protein and vegetables, adjust seasoning to taste",
+                    "Serve over rice or pasta while hot"
                 ],
-                "_note": f"Fallback recipe due to generation timeout: {str(e)}"
+                "_note": f"Fallback recipe generated due to API error: {str(e)}"
             }
 
     async def generate_recipes(self, liked_foods: List[str], disliked_foods: List[str], recipe_count: int = 5, serving_size: int = 4, progress_callback=None, user_id: int = None, db_session=None, must_use_ingredients: List[str] = None) -> List[Dict[str, Any]]:
