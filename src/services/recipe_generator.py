@@ -4,8 +4,8 @@ import re
 from typing import List, Dict, Any
 
 class RecipeGenerator:
-    def __init__(self, ollama_url: str, model: str):
-        self.ollama_url = ollama_url
+    def __init__(self, lm_studio_url: str, model: str):
+        self.lm_studio_url = lm_studio_url
         self.model = model
         self.reset_diversity_tracking()
     
@@ -86,11 +86,15 @@ JSON format:
                 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self.ollama_url}/api/generate",
+                    f"{self.lm_studio_url}/v1/chat/completions",
+                    headers={"Content-Type": "application/json"},
                     json={
                         "model": self.model,
-                        "prompt": prompt,
-                        "stream": False
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 1000
                     },
                     timeout=60.0  # Reduced timeout for simplified prompt
                 )
@@ -98,7 +102,9 @@ JSON format:
                 if response.status_code == 200:
                     result = response.json()
                     from ..utils.recipe_parser import parse_recipe_response
-                    recipe = parse_recipe_response(result['response'], recipe_number, serving_size)
+                    # LM Studio returns response in OpenAI format
+                    content = result['choices'][0]['message']['content']
+                    recipe = parse_recipe_response(content, recipe_number, serving_size)
                     
                     # Check for similarity with user history if available
                     if user_id and db_session and "error" not in recipe:
@@ -128,7 +134,7 @@ JSON format:
                     
                     return recipe
                 else:
-                    return {"error": f"Ollama API error for recipe {recipe_number}: {response.status_code}"}
+                    return {"error": f"LM Studio API error for recipe {recipe_number}: {response.status_code}"}
         
         except Exception as e:
             # Return a simple fallback recipe instead of just an error

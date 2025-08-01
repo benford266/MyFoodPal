@@ -17,7 +17,7 @@ from ..utils.session import get_current_user, set_current_user, clear_current_us
 from ..utils.theme import get_theme_classes
 from ..utils.shopping_list import generate_shopping_list
 from ..utils.pdf_export import generate_pdf_export
-from ..config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from ..config import LM_STUDIO_BASE_URL, LM_STUDIO_MODEL
 
 @ui.page('/login')
 def login_page():
@@ -147,7 +147,7 @@ def main_page():
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
     
     # Create recipe generator
-    recipe_generator = RecipeGenerator(OLLAMA_BASE_URL, OLLAMA_MODEL)
+    recipe_generator = RecipeGenerator(LM_STUDIO_BASE_URL, LM_STUDIO_MODEL)
     
     # Load current preferences from user
     db = next(get_db())

@@ -14,7 +14,7 @@ from src.api.endpoints import setup_api_routes
 from src.ui import pages
 
 # Import configuration
-from src.config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from src.config import LM_STUDIO_BASE_URL, LM_STUDIO_MODEL
 
 # FastAPI app
 fastapi_app = FastAPI()
