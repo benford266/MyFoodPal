@@ -15,7 +15,7 @@ class RecipeGenerator:
     
     async def generate_single_recipe(self, recipe_number: int, liked_foods: List[str], disliked_foods: List[str], 
                                    existing_ingredients: List[str] = None, progress_callback=None, total_recipes: int = 5, serving_size: int = 4, used_carbs: List[str] = None, user_id: int = None, db_session=None, must_use_ingredients: List[str] = None) -> Dict[str, Any]:
-        """Generate a single recipe, optionally using existing ingredients"""
+        """Generate a single recipe with cuisine diversity and carb variety"""
         
         # Simplified cuisine/style selection
         cuisines = ["Italian", "Asian", "Mexican", "Mediterranean", "Indian", "French", "Thai", "Middle Eastern"]
@@ -51,10 +51,15 @@ class RecipeGenerator:
         # Add carb variety constraint
         carb_text = ""
         if used_carbs:
-            carb_text = f"Use different carb than: {', '.join(used_carbs[:2])}. "
+            carb_text = f"Use a different carbohydrate base than these already used: {', '.join(used_carbs[:2])}. Choose something different like rice, pasta, potatoes, quinoa, etc. "
+        
+        # Add some variety to prevent model from getting stuck in patterns
+        recipe_styles = ["hearty", "light and fresh", "comfort food", "restaurant-style", "family-friendly"]
+        import random
+        style_hint = random.choice(recipe_styles)
         
         # Enhanced prompt with better context and guidance
-        prompt = f"""You are a professional chef creating a delicious {selected_cuisine} dinner recipe for {serving_size} people.
+        prompt = f"""You are a professional chef creating a delicious {selected_cuisine} dinner recipe for {serving_size} people. Make this a {style_hint} dish.
 
 REQUIREMENTS:
 - Create a complete, practical recipe that can be cooked at home
@@ -62,6 +67,7 @@ REQUIREMENTS:
 - Use realistic ingredient quantities and cooking times
 - Provide clear, step-by-step instructions
 - Ensure the recipe is balanced and nutritious
+- Make this recipe unique and different from typical generic recipes
 
 RESPONSE FORMAT: Return ONLY valid JSON with no additional text or explanations.
 
@@ -211,14 +217,11 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
         carb_keywords = ['rice', 'pasta', 'noodle', 'potato', 'quinoa', 'bulgur', 'couscous', 'polenta', 'bread', 'barley', 'sweet potato', 'lentil', 'chickpea', 'bean', 'flour', 'wheat', 'oat', 'corn', 'maize']
         
         for i in range(1, recipe_count + 1):  # Generate specified number of recipes
-            # After first recipe, pass existing ingredients to encourage sharing
-            existing_ingredients = all_ingredients if i > 1 else None
-            
-            # Pass used carbohydrates to encourage variety (from second recipe onwards)
-            used_carbs = used_carbohydrates if i > 1 else None
+            # Only pass used carbs for variety, not all ingredients (which was causing issues)
+            used_carbs = used_carbohydrates[-2:] if i > 1 and used_carbohydrates else None
             
             recipe = await self.generate_single_recipe(
-                i, liked_foods, disliked_foods, existing_ingredients, progress_callback, recipe_count, serving_size, used_carbs, user_id, db_session, must_use_ingredients
+                i, liked_foods, disliked_foods, None, progress_callback, recipe_count, serving_size, used_carbs, user_id, db_session, must_use_ingredients
             )
             
             if "error" in recipe:
