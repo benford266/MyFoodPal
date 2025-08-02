@@ -69,6 +69,7 @@ REQUIREMENTS:
 - Provide clear, step-by-step instructions
 - Ensure the recipe is balanced and nutritious
 - Make this recipe unique and different from typical generic recipes
+- IMPORTANT: Use only ONE expensive protein per recipe (choose either chicken OR beef OR fish OR lamb, never combine multiple expensive proteins)
 
 RESPONSE FORMAT: Return ONLY valid JSON with no additional text or explanations.
 
@@ -81,7 +82,7 @@ RESPONSE FORMAT: Return ONLY valid JSON with no additional text or explanations.
     "difficulty": "Easy/Medium/Hard",
     "ingredients": [
         {{"item": "specific ingredient name", "quantity": "precise amount", "unit": "g/ml/tbsp/tsp/cup/piece"}},
-        {{"item": "main protein (chicken/beef/fish/tofu)", "quantity": "400-600", "unit": "g"}},
+        {{"item": "single main protein (choose ONE: chicken/beef/fish/pork/lamb/tofu)", "quantity": "400-600", "unit": "g"}},
         {{"item": "fresh vegetables (be specific)", "quantity": "200-400", "unit": "g"}},
         {{"item": "carbohydrate (rice/pasta/potatoes)", "quantity": "200-300", "unit": "g"}},
         {{"item": "seasonings/spices (be specific)", "quantity": "1-2", "unit": "tsp"}},
