@@ -192,6 +192,12 @@ def main_page():
                 with ui.row().classes('gap-4 w-full'):
                     recipe_count_input = ui.number(label='Number of Recipes', value=5, min=1, max=10).classes('flex-1')
                     serving_size_input = ui.number(label='Serving Size', value=4, min=1, max=12).classes('flex-1')
+                
+                # Generation mode toggle
+                with ui.card().classes('p-4 mt-4'):
+                    ui.label('Generation Mode').classes('text-sm font-semibold mb-2')
+                    background_mode = ui.switch('Generate in Background', value=False)
+                    ui.label('Background mode lets you navigate away while recipes generate').classes('text-xs text-gray-500')
             
             # Right panel - results
             with ui.column().classes('flex-1'):
@@ -216,6 +222,16 @@ def main_page():
                             except Exception as e:
                                 print(f"Error updating preferences: {e}")
                             
+                            # Check for immediate vs background generation
+                            if not background_mode.value:
+                                # Immediate generation (existing behavior)
+                                await _generate_immediately()
+                            else:
+                                # Background generation (new behavior)
+                                await _generate_in_background()
+                        
+                        async def _generate_immediately():
+                            """Generate recipes immediately with live progress"""
                             # Show progress
                             results_container.clear()
                             with results_container:
@@ -336,6 +352,67 @@ def main_page():
                                         ui.label('Generation Failed').classes('text-lg font-bold text-red-700 mb-2')
                                         ui.label(str(e)).classes('text-red-600')
                         
+                        async def _generate_in_background():
+                            """Start background generation and show status"""
+                            try:
+                                # Import background task service
+                                from ..database.operations import create_generation_task
+                                from ..services.background_tasks import start_background_generation
+                                
+                                # Create generation task record
+                                db = next(get_db())
+                                task = create_generation_task(
+                                    db=db,
+                                    user_id=current_user['id'],
+                                    recipe_count=int(recipe_count_input.value),
+                                    serving_size=int(serving_size_input.value),
+                                    liked_foods=liked_foods_input.value,
+                                    disliked_foods=disliked_foods_input.value,
+                                    must_use_ingredients=must_use_input.value
+                                )
+                                
+                                # Start background task
+                                await start_background_generation(task.id)
+                                
+                                # Show background generation status
+                                results_container.clear()
+                                with results_container:
+                                    with ui.card().classes('p-8 text-center bg-blue-50'):
+                                        ui.icon('schedule', size='3rem').classes('text-blue-500 mb-4')
+                                        ui.label('Generation Started in Background!').classes('text-xl font-bold text-blue-800 mb-4')
+                                        ui.label(f'Your {int(recipe_count_input.value)} recipes are being generated in the background.').classes('text-blue-600 mb-4')
+                                        ui.label('You can navigate to other pages and we\'ll notify you when complete.').classes('text-blue-600 mb-6')
+                                        
+                                        with ui.row().classes('gap-4'):
+                                            ui.button('View Meal Plans', on_click=lambda: ui.navigate.to('/history')).props('color=primary')
+                                            ui.button('Check Status', on_click=lambda: _check_task_status(task.id)).props('color=secondary')
+                                
+                                ui.notify(f'Recipe generation started in background (Task #{task.id})', type='positive')
+                                
+                            except Exception as e:
+                                ui.notify(f'Failed to start background generation: {str(e)}', type='negative')
+                        
+                        def _check_task_status(task_id: int):
+                            """Check and display task status"""
+                            try:
+                                from ..database.operations import get_generation_task
+                                db = next(get_db())
+                                task = get_generation_task(db, task_id)
+                                
+                                if task:
+                                    status_msg = f"Task #{task_id}: {task.status.value} ({task.progress}%)"
+                                    if task.current_step:
+                                        status_msg += f" - {task.current_step}"
+                                    ui.notify(status_msg, type='info')
+                                    
+                                    if task.status.value == 'completed' and task.meal_plan_id:
+                                        ui.notify('Generation complete! Check your meal plans.', type='positive')
+                                        ui.navigate.to('/history')
+                                else:
+                                    ui.notify(f'Task #{task_id} not found', type='warning')
+                            except Exception as e:
+                                ui.notify(f'Error checking task status: {str(e)}', type='negative')
+                        
                         ui.button('Generate Recipes', on_click=generate_recipes_handler).props('color=primary size=lg').classes('px-8')
 
 @ui.page('/history')
@@ -358,6 +435,35 @@ def history_page():
         
         # Content
         with ui.column().classes('flex-1 p-6 max-w-4xl mx-auto w-full'):
+            # Check for active background tasks
+            try:
+                from ..database.operations import get_user_active_generation_tasks, get_user_recent_generation_tasks
+                db = next(get_db())
+                active_tasks = get_user_active_generation_tasks(db, current_user['id'])
+                
+                if active_tasks:
+                    with ui.card().classes('p-6 mb-6 bg-blue-50 border-blue-200'):
+                        ui.label(f'🔄 {len(active_tasks)} Background Generation{"s" if len(active_tasks) != 1 else ""} in Progress').classes('text-lg font-bold text-blue-800 mb-4')
+                        
+                        for task in active_tasks:
+                            with ui.row().classes('items-center justify-between w-full mb-2'):
+                                with ui.column().classes('flex-1'):
+                                    ui.label(f'Task #{task.id}: {task.recipe_count} recipes ({task.status.value})').classes('font-medium text-blue-700')
+                                    if task.current_step:
+                                        ui.label(task.current_step).classes('text-sm text-blue-600')
+                                with ui.column().classes('items-end'):
+                                    ui.label(f'{task.progress}%').classes('text-sm font-bold text-blue-800')
+                                    if task.progress > 0:
+                                        ui.linear_progress(value=task.progress/100).classes('w-24')
+                        
+                        def refresh_status():
+                            ui.navigate.to('/history')  # Simple refresh
+                        
+                        ui.button('Refresh Status', on_click=refresh_status).props('color=primary size=sm').classes('mt-2')
+                
+            except Exception as e:
+                print(f"Error checking background tasks: {e}")
+            
             try:
                 db = next(get_db())
                 meal_plans = get_user_meal_plans(db, current_user['id'], limit=20)

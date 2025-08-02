@@ -3,7 +3,7 @@ from passlib.context import CryptContext
 from datetime import datetime, timezone
 from typing import List, Dict, Any
 
-from .models import User, MealPlan, RecipeRating, RecipeHistory
+from .models import User, MealPlan, RecipeRating, RecipeHistory, GenerationTask, GenerationTaskStatus
 from ..models.schemas import UserCreate, MealPlanCreate
 
 # Password hashing
@@ -236,3 +236,72 @@ def check_recipe_similarity(db: Session, user_id: int, recipe: Dict[str, Any], c
     except Exception as e:
         print(f"Error checking recipe similarity: {e}")
         return False  # Default to allowing recipe if check fails
+
+# Generation Task utilities
+def create_generation_task(db: Session, user_id: int, recipe_count: int, serving_size: int, 
+                          liked_foods: str, disliked_foods: str, must_use_ingredients: str):
+    """Create a new background generation task"""
+    task = GenerationTask(
+        user_id=user_id,
+        recipe_count=recipe_count,
+        serving_size=serving_size,
+        liked_foods=liked_foods,
+        disliked_foods=disliked_foods,
+        must_use_ingredients=must_use_ingredients,
+        status=GenerationTaskStatus.PENDING
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
+
+def get_generation_task(db: Session, task_id: int):
+    """Get a generation task by ID"""
+    return db.query(GenerationTask).filter(GenerationTask.id == task_id).first()
+
+def update_generation_task_progress(db: Session, task_id: int, status: GenerationTaskStatus, 
+                                   progress: int, current_step: str):
+    """Update generation task progress"""
+    task = db.query(GenerationTask).filter(GenerationTask.id == task_id).first()
+    if task:
+        task.status = status
+        task.progress = progress
+        task.current_step = current_step
+        if status == GenerationTaskStatus.GENERATING_RECIPES and not task.started_at:
+            task.started_at = datetime.now(timezone.utc)
+        db.commit()
+        return task
+    return None
+
+def complete_generation_task(db: Session, task_id: int, meal_plan_id: int = None, error_message: str = ""):
+    """Mark generation task as completed or failed"""
+    task = db.query(GenerationTask).filter(GenerationTask.id == task_id).first()
+    if task:
+        if error_message:
+            task.status = GenerationTaskStatus.FAILED
+            task.error_message = error_message
+        else:
+            task.status = GenerationTaskStatus.COMPLETED
+            task.meal_plan_id = meal_plan_id
+        task.completed_at = datetime.now(timezone.utc)
+        task.progress = 100
+        db.commit()
+        return task
+    return None
+
+def get_user_active_generation_tasks(db: Session, user_id: int):
+    """Get active generation tasks for a user"""
+    return db.query(GenerationTask).filter(
+        GenerationTask.user_id == user_id,
+        GenerationTask.status.in_([
+            GenerationTaskStatus.PENDING,
+            GenerationTaskStatus.GENERATING_RECIPES,
+            GenerationTaskStatus.GENERATING_IMAGES
+        ])
+    ).order_by(GenerationTask.created_at.desc()).all()
+
+def get_user_recent_generation_tasks(db: Session, user_id: int, limit: int = 10):
+    """Get recent generation tasks for a user"""
+    return db.query(GenerationTask).filter(
+        GenerationTask.user_id == user_id
+    ).order_by(GenerationTask.created_at.desc()).limit(limit).all()

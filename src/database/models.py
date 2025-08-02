@@ -1,7 +1,8 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime, timezone
+import enum
 
 Base = declarative_base()
 
@@ -76,3 +77,39 @@ class RecipeHistory(Base):
     
     # Relationships
     user = relationship("User")
+
+class GenerationTaskStatus(enum.Enum):
+    PENDING = "pending"
+    GENERATING_RECIPES = "generating_recipes"
+    GENERATING_IMAGES = "generating_images"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class GenerationTask(Base):
+    __tablename__ = "generation_tasks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(Enum(GenerationTaskStatus), default=GenerationTaskStatus.PENDING)
+    progress = Column(Integer, default=0)  # 0-100 percentage
+    current_step = Column(String, default="")  # Current operation description
+    
+    # Generation parameters
+    recipe_count = Column(Integer, default=5)
+    serving_size = Column(Integer, default=4)
+    liked_foods = Column(Text, default="")
+    disliked_foods = Column(Text, default="")
+    must_use_ingredients = Column(Text, default="")
+    
+    # Results (when completed)
+    meal_plan_id = Column(Integer, ForeignKey("meal_plans.id"), nullable=True)
+    error_message = Column(Text, default="")
+    
+    # Timestamps
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    user = relationship("User")
+    meal_plan = relationship("MealPlan")
