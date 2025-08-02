@@ -67,18 +67,58 @@ def display_meal_plan_details(meal_plan, recipes: List[Dict[str, Any]], shopping
                             with ui.column().classes('mb-6'):
                                 # Recipe image (if available)
                                 if recipe.get("image_path"):
-                                    image_url = f'/{recipe["image_path"]}'
-                                    print(f"🖼️ Meal plan - displaying image for '{recipe.get('name')}': {image_url}")
+                                    print(f"🖼️ Meal plan - displaying image for '{recipe.get('name')}': {recipe['image_path']}")
+                                    
                                     with ui.row().classes('justify-center mb-4'):
                                         try:
-                                            ui.image(image_url).classes('w-full max-w-md h-64 object-cover rounded-2xl shadow-lg')
+                                            # Try to get the image URL using different methods (same as main page)
+                                            from ..imagegen.image_utils import get_image_display_url
+                                            
+                                            # Method 1: Try regular web URL first
+                                            image_url = get_image_display_url(recipe["image_path"], use_base64=False)
+                                            print(f"🔍 Meal plan - Web URL: {image_url}")
+                                            
+                                            # Method 2: Try base64 as backup
+                                            base64_url = get_image_display_url(recipe["image_path"], use_base64=True)
+                                            
+                                            if base64_url:
+                                                print(f"🔍 Meal plan - Using base64 image (length: {len(base64_url)})")
+                                                ui.html(f'''
+                                                    <img src="{base64_url}" 
+                                                         alt="{recipe.get('name', 'Recipe image')}"
+                                                         style="max-width: 24rem; height: 16rem; object-fit: cover; border-radius: 1rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); margin: 0 auto; display: block;"
+                                                         onload="console.log('Meal plan - Base64 image loaded successfully for {recipe.get('name', '')}')"
+                                                         onerror="console.error('Meal plan - Base64 image failed to load for {recipe.get('name', '')}');"
+                                                    />
+                                                ''')
+                                                print(f"✅ Meal plan - Base64 image element created successfully")
+                                            elif image_url:
+                                                print(f"🔍 Meal plan - Using web URL: {image_url}")
+                                                ui.html(f'''
+                                                    <img src="{image_url}" 
+                                                         alt="{recipe.get('name', 'Recipe image')}"
+                                                         style="max-width: 24rem; height: 16rem; object-fit: cover; border-radius: 1rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); margin: 0 auto; display: block;"
+                                                         onload="console.log('Meal plan - Web image loaded successfully: {image_url}')"
+                                                         onerror="console.error('Meal plan - Web image failed to load: {image_url}');"
+                                                    />
+                                                ''')
+                                                print(f"✅ Meal plan - Web image element created successfully")
+                                            else:
+                                                raise Exception("No valid image URL generated")
+                                            
                                         except Exception as e:
-                                            print(f"❌ Error displaying image for {recipe.get('name')}: {e}")
+                                            print(f"❌ Meal plan - Error creating image element for {recipe.get('name')}: {e}")
                                             # Show placeholder if image fails to load
                                             with ui.card().classes('w-full max-w-md h-64 bg-gray-100 rounded-2xl flex items-center justify-center'):
                                                 ui.html('<div class="text-6xl opacity-50">🍽️</div>')
+                                                ui.html(f'<p class="text-xs text-gray-500 mt-2">Meal plan image error: {str(e)}</p>')
                                 else:
                                     print(f"ℹ️ Meal plan - no image path found for recipe: {recipe.get('name')}")
+                                    # Show placeholder when no image
+                                    with ui.row().classes('justify-center mb-4'):
+                                        with ui.card().classes('w-full max-w-md h-64 bg-gray-100 rounded-2xl flex items-center justify-center'):
+                                            ui.html('<div class="text-6xl opacity-50">🍽️</div>')
+                                            ui.html('<p class="text-xs text-gray-500 mt-2">No image available</p>')
                                 
                                 with ui.row().classes('items-center gap-4 mb-3'):
                                     ui.html(f'<div class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-full flex items-center justify-center text-xl font-bold">{i}</div>')

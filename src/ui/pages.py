@@ -221,9 +221,15 @@ def main_page():
                             with results_container:
                                 with ui.card().classes('p-8 text-center'):
                                     ui.spinner(size='lg').classes('mb-4')
-                                    ui.label('Generating Your Recipes...').classes('text-xl font-bold mb-4')
-                                    progress_label = ui.label('Getting started...').classes('text-gray-600 mb-4')
-                                    progress_bar = ui.linear_progress(value=0).classes('w-full')
+                                    ui.label('Generating Your Recipes & Images...').classes('text-xl font-bold mb-4')
+                                    progress_label = ui.label('Getting started...').classes('text-gray-600 mb-2')
+                                    
+                                    # Show breakdown of what we're doing
+                                    recipe_count = int(recipe_count_input.value)
+                                    ui.label(f'Creating {recipe_count} recipes + {recipe_count} images = {recipe_count * 2} total steps').classes('text-sm text-gray-500 mb-4')
+                                    
+                                    progress_bar = ui.linear_progress(value=0).classes('w-full mb-2')
+                                    progress_percentage = ui.label('0%').classes('text-sm text-gray-500')
                             
                             # Generate recipes
                             try:
@@ -231,17 +237,55 @@ def main_page():
                                 disliked_foods = [f.strip() for f in disliked_foods_input.value.split(',') if f.strip()]
                                 must_use_ingredients = [f.strip() for f in must_use_input.value.split(',') if f.strip()]
                                 
+                                # Enhanced progress tracking for both recipes and images
+                                total_steps = int(recipe_count_input.value) * 2  # recipes + images
+                                current_step = 0
+                                
                                 async def progress_callback(message: str):
+                                    nonlocal current_step
                                     progress_label.text = message
-                                    if "recipe" in message.lower():
+                                    
+                                    # Helper function to update progress
+                                    def update_progress(step):
+                                        nonlocal current_step
+                                        current_step = step
+                                        progress_value = current_step / total_steps
+                                        progress_bar.value = progress_value
+                                        progress_percentage.text = f'{int(progress_value * 100)}%'
+                                    
+                                    # Track recipe generation progress
+                                    if "Generating recipe" in message and "/" in message:
                                         try:
                                             parts = message.split('/')
                                             if len(parts) >= 2:
-                                                current = int(parts[0].split()[-1])
-                                                total = int(parts[1].split()[0])
-                                                progress_bar.value = current / total
-                                        except:
-                                            pass
+                                                recipe_num = int(parts[0].split()[-1])
+                                                total_recipes = int(parts[1].split()[0])
+                                                # Recipe generation is first half of progress
+                                                update_progress(recipe_num)
+                                                print(f"📊 Recipe progress: {recipe_num}/{total_recipes} (step {current_step}/{total_steps})")
+                                        except Exception as e:
+                                            print(f"Error parsing recipe progress: {e}")
+                                    
+                                    # Track image generation progress
+                                    elif "Generating image" in message and "/" in message:
+                                        try:
+                                            parts = message.split('/')
+                                            if len(parts) >= 2:
+                                                # Extract numbers from "Generating image X/Y: Recipe Name"
+                                                image_num = int(parts[0].split()[-1])
+                                                total_images = int(parts[1].split(':')[0])
+                                                # Image generation is second half of progress
+                                                update_progress(int(recipe_count_input.value) + image_num)
+                                                print(f"📊 Image progress: {image_num}/{total_images} (step {current_step}/{total_steps})")
+                                        except Exception as e:
+                                            print(f"Error parsing image progress: {e}")
+                                    
+                                    # Handle general progress messages
+                                    elif "Generating recipes..." in message:
+                                        update_progress(0.5)  # Small initial progress
+                                    elif "Generating recipe images..." in message:
+                                        update_progress(int(recipe_count_input.value))
+                                        print(f"📊 Starting image generation (step {current_step}/{total_steps})")
                                 
                                 db = next(get_db())
                                 
@@ -256,6 +300,11 @@ def main_page():
                                     generate_images=True,
                                     comfyui_server="192.168.4.208:8188"
                                 )
+                                
+                                # Final progress update
+                                progress_bar.value = 1.0
+                                progress_percentage.text = "100%"
+                                progress_label.text = "Generating shopping list..."
                                 
                                 shopping_list = generate_shopping_list(recipes)
                                 
