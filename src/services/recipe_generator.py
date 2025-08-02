@@ -343,17 +343,19 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
                         try:
                             image_path = await comfyui_client.generate_recipe_image(
                                 recipe['name'],
-                                output_dir="/Users/ben/Code/FoodPal/media",
+                                output_dir="./media",  # Use relative path
                                 filename_prefix=f"recipe_{recipe_index + 1}"
                             )
                             image_results[recipe_index] = image_path
                             
                             # Add image path to recipe data
                             if image_path:
-                                # Store relative path for web serving
-                                relative_path = image_path.replace("/Users/ben/Code/FoodPal/", "")
-                                recipes[recipe_index]['image_path'] = relative_path
-                                print(f"✅ Image generated for '{recipe['name']}': {relative_path}")
+                                # Extract just the filename for web serving
+                                import os
+                                filename = os.path.basename(image_path)
+                                web_path = f"media/{filename}"
+                                recipes[recipe_index]['image_path'] = web_path
+                                print(f"✅ Image generated for '{recipe['name']}': {web_path}")
                             else:
                                 print(f"❌ Failed to generate image for '{recipe['name']}'")
                                 

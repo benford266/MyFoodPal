@@ -25,12 +25,12 @@ setup_api_routes(fastapi_app)
 # Initialize database
 create_tables()
 
-# Configure NiceGUI
-app.mount('/api', fastapi_app)
-
 # Serve static media files
 from fastapi.staticfiles import StaticFiles
-fastapi_app.mount("/media", StaticFiles(directory="media"), name="media")
+app.mount("/media", StaticFiles(directory="media"), name="media")
+
+# Configure NiceGUI
+app.mount('/api', fastapi_app)
 
 if __name__ in {"__main__", "__mp_main__"}:
     # Generate or use a storage secret for session management

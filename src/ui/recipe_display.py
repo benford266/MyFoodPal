@@ -38,14 +38,18 @@ def display_recipes_and_shopping_list(container, recipes: List[Dict[str, Any]], 
                             with ui.column().classes('mb-6'):
                                 # Recipe image (if available)
                                 if recipe.get("image_path"):
+                                    image_url = f'/{recipe["image_path"]}'
+                                    print(f"🖼️ Displaying image for '{recipe.get('name')}': {image_url}")
                                     with ui.row().classes('justify-center mb-4'):
                                         try:
-                                            ui.image(f'/{recipe["image_path"]}').classes('w-full max-w-md h-64 object-cover rounded-2xl shadow-lg')
+                                            ui.image(image_url).classes('w-full max-w-md h-64 object-cover rounded-2xl shadow-lg')
                                         except Exception as e:
-                                            print(f"Error displaying image for {recipe.get('name')}: {e}")
+                                            print(f"❌ Error displaying image for {recipe.get('name')}: {e}")
                                             # Show placeholder if image fails to load
                                             with ui.card().classes('w-full max-w-md h-64 bg-gray-100 rounded-2xl flex items-center justify-center'):
                                                 ui.html('<div class="text-6xl opacity-50">🍽️</div>')
+                                else:
+                                    print(f"ℹ️ No image path found for recipe: {recipe.get('name')}")
                                 
                                 with ui.row().classes('items-center gap-4 mb-3'):
                                     ui.html(f'<div class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-full flex items-center justify-center text-xl font-bold">{i}</div>')

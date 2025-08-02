@@ -103,7 +103,7 @@ class ComfyUIClient:
     async def generate_recipe_image(
         self, 
         recipe_name: str, 
-        output_dir: str = "/Users/ben/Code/FoodPal/media",
+        output_dir: str = "./media",
         filename_prefix: Optional[str] = None
     ) -> Optional[str]:
         """
@@ -184,8 +184,9 @@ class ComfyUIClient:
                 saved_image_info.get('type', 'output')
             )
             
-            # Ensure output directory exists
-            os.makedirs(output_dir, exist_ok=True)
+            # Ensure output directory exists (convert to absolute path)
+            abs_output_dir = os.path.abspath(output_dir)
+            os.makedirs(abs_output_dir, exist_ok=True)
             
             # Save the image with a clean filename
             safe_recipe_name = "".join(c for c in recipe_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
@@ -196,7 +197,7 @@ class ComfyUIClient:
             file_extension = os.path.splitext(original_filename)[1] or '.png'
             
             output_filename = f"{safe_recipe_name}_{prompt_id[:8]}{file_extension}"
-            output_path = os.path.join(output_dir, output_filename)
+            output_path = os.path.join(abs_output_dir, output_filename)
             
             async with aiofiles.open(output_path, 'wb') as f:
                 await f.write(image_data)
