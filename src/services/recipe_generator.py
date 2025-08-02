@@ -1,6 +1,7 @@
 import httpx
 import json
 import re
+import aiohttp
 from typing import List, Dict, Any
 
 class RecipeGenerator:
@@ -303,15 +304,28 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
         
         # Generate images if requested
         if generate_images and recipes:
+            print(f"🔍 Starting image generation for {len(recipes)} recipes...")
             try:
                 if progress_callback:
                     await progress_callback("Generating recipe images...")
                 
                 # Import here to avoid dependency issues if not needed
+                print("🔍 Importing ComfyUI client...")
                 from ..imagegen.comfyui_client import ComfyUIClient
+                print("✅ ComfyUI client imported successfully")
                 
                 # Initialize ComfyUI client
+                print(f"🔍 Initializing ComfyUI client for server: {comfyui_server}")
                 comfyui_client = ComfyUIClient(comfyui_server)
+                
+                # Test server connectivity
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(f"http://{comfyui_server}/", timeout=aiohttp.ClientTimeout(total=5)) as response:
+                            print(f"✅ ComfyUI server reachable: {response.status}")
+                except Exception as e:
+                    print(f"❌ ComfyUI server not reachable: {e}")
+                    # Continue anyway - maybe it's just the root endpoint that's not available
                 
                 # Generate images for valid recipes
                 valid_recipes = [(i, recipe) for i, recipe in enumerate(recipes) 

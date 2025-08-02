@@ -1,8 +1,6 @@
 import json
 import uuid
-import urllib.request
 import urllib.parse
-import websocket
 import asyncio
 import aiohttp
 import aiofiles
@@ -71,15 +69,11 @@ class ComfyUIClient:
     async def monitor_progress_websocket(self, prompt_id: str) -> bool:
         """Monitor generation progress via WebSocket"""
         try:
+            import websockets
             uri = f"ws://{self.server_address}/ws?clientId={self.client_id}"
             
-            # Use a timeout for the connection
-            async def connect_with_timeout():
-                import websockets
-                return await websockets.connect(uri)
-            
             # Wait for connection with timeout
-            websocket_conn = await asyncio.wait_for(connect_with_timeout(), timeout=10.0)
+            websocket_conn = await asyncio.wait_for(websockets.connect(uri), timeout=10.0)
             
             try:
                 while True:
@@ -110,7 +104,7 @@ class ComfyUIClient:
         self, 
         recipe_name: str, 
         output_dir: str = "/Users/ben/Code/FoodPal/media",
-        filename_prefix: str = None
+        filename_prefix: Optional[str] = None
     ) -> Optional[str]:
         """
         Generate an image for a recipe
