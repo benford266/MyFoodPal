@@ -245,14 +245,16 @@ def main_page():
                                 
                                 db = next(get_db())
                                 
-                                recipes = await recipe_generator.generate_recipes(
+                                recipes = await recipe_generator.generate_recipes_with_images(
                                     liked_foods, disliked_foods, 
                                     int(recipe_count_input.value), 
                                     int(serving_size_input.value),
                                     progress_callback,
                                     current_user['id'],
                                     db,
-                                    must_use_ingredients
+                                    must_use_ingredients,
+                                    generate_images=True,
+                                    comfyui_server="192.168.4.208:8188"
                                 )
                                 
                                 shopping_list = generate_shopping_list(recipes)

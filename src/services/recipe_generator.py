@@ -270,3 +270,93 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
             delattr(self, '_must_use_recipe')
         
         return recipes
+    
+    async def generate_recipes_with_images(
+        self, 
+        liked_foods: List[str], 
+        disliked_foods: List[str], 
+        recipe_count: int = 5, 
+        serving_size: int = 4, 
+        progress_callback=None, 
+        user_id: int = None, 
+        db_session=None, 
+        must_use_ingredients: List[str] = None,
+        generate_images: bool = True,
+        comfyui_server: str = "192.168.4.208:8188"
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate recipes and optionally generate images for each recipe
+        
+        Args:
+            generate_images: Whether to generate images for the recipes
+            comfyui_server: ComfyUI server address
+            ... (other args same as generate_recipes)
+        """
+        # First generate the recipes
+        if progress_callback:
+            await progress_callback("Generating recipes...")
+        
+        recipes = await self.generate_recipes(
+            liked_foods, disliked_foods, recipe_count, serving_size, 
+            progress_callback, user_id, db_session, must_use_ingredients
+        )
+        
+        # Generate images if requested
+        if generate_images and recipes:
+            try:
+                if progress_callback:
+                    await progress_callback("Generating recipe images...")
+                
+                # Import here to avoid dependency issues if not needed
+                from ..imagegen.comfyui_client import ComfyUIClient
+                
+                # Initialize ComfyUI client
+                comfyui_client = ComfyUIClient(comfyui_server)
+                
+                # Generate images for valid recipes
+                valid_recipes = [(i, recipe) for i, recipe in enumerate(recipes) 
+                               if isinstance(recipe, dict) and 'name' in recipe and 'error' not in recipe]
+                
+                if valid_recipes:
+                    print(f"🖼️ Generating images for {len(valid_recipes)} recipes...")
+                    
+                    # Generate images one by one with progress updates
+                    image_results = {}
+                    for idx, (recipe_index, recipe) in enumerate(valid_recipes):
+                        if progress_callback:
+                            await progress_callback(f"Generating image {idx + 1}/{len(valid_recipes)}: {recipe['name']}")
+                        
+                        try:
+                            image_path = await comfyui_client.generate_recipe_image(
+                                recipe['name'],
+                                output_dir="/Users/ben/Code/FoodPal/media",
+                                filename_prefix=f"recipe_{recipe_index + 1}"
+                            )
+                            image_results[recipe_index] = image_path
+                            
+                            # Add image path to recipe data
+                            if image_path:
+                                # Store relative path for web serving
+                                relative_path = image_path.replace("/Users/ben/Code/FoodPal/", "")
+                                recipes[recipe_index]['image_path'] = relative_path
+                                print(f"✅ Image generated for '{recipe['name']}': {relative_path}")
+                            else:
+                                print(f"❌ Failed to generate image for '{recipe['name']}'")
+                                
+                        except Exception as e:
+                            print(f"❌ Error generating image for '{recipe['name']}': {str(e)}")
+                            image_results[recipe_index] = None
+                    
+                    # Summary
+                    successful_images = sum(1 for path in image_results.values() if path)
+                    print(f"🎨 Image generation complete: {successful_images}/{len(valid_recipes)} successful")
+                else:
+                    print("ℹ️ No valid recipes found for image generation")
+                    
+            except ImportError:
+                print("⚠️ ComfyUI client not available, skipping image generation")
+            except Exception as e:
+                print(f"⚠️ Image generation failed: {str(e)}")
+                # Continue without images rather than failing entirely
+        
+        return recipes
