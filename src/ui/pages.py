@@ -160,7 +160,6 @@ def login_page():
                         # Recipe info
                         with ui.column().classes('p-6'):
                             ui.html(f'<h4 class="text-lg font-bold {theme["text_primary"]} mb-2 line-clamp-2">{recipe["name"]}</h4>')
-                            ui.html(f'<p class="text-sm {theme["text_muted"]} mb-4">AI-generated recipe with personalized ingredients</p>')
                             
                             with ui.row().classes('items-center justify-between'):
                                 with ui.row().classes('gap-2'):
