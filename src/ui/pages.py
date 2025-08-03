@@ -139,7 +139,7 @@ def login_page():
                         ui.html(f'<p class="{theme["text_secondary"]} leading-relaxed">{card["description"]}</p>')
         
         # Recipe Gallery Section
-        with ui.column().classes('w-full py-20 px-8').add_style('id="recipe-gallery"'):
+        with ui.column().classes('w-full py-20 px-8'):
             ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-4">Discover Amazing Recipes</h3>')
             ui.html(f'<p class="text-xl {theme["text_secondary"]} text-center mb-16 max-w-3xl mx-auto">From comfort food classics to international cuisines, our AI creates personalized recipes with stunning visuals</p>')
             
@@ -173,7 +173,7 @@ def login_page():
                                 ).classes(f'{theme["button_primary"]} w-10 h-10 rounded-full text-white font-bold').tooltip('Try this recipe!')
         
         # Authentication Section
-        with ui.column().classes(f'{theme["bg_surface"]} w-full py-20 px-8').add_style('id="auth-section"'):
+        with ui.column().classes(f'{theme["bg_surface"]} w-full py-20 px-8'):
             ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-16">Ready to Start Cooking?</h3>')
             
             with ui.row().classes('max-w-6xl mx-auto gap-12 items-center'):
@@ -202,7 +202,9 @@ def login_page():
     ui.add_head_html('''
         <script>
         function scrollToAuth() {
-            document.getElementById('auth-section').scrollIntoView({ 
+            // Scroll to bottom of page where auth section is
+            window.scrollTo({ 
+                top: document.body.scrollHeight,
                 behavior: 'smooth' 
             });
         }
