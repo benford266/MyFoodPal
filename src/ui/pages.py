@@ -23,116 +23,335 @@ from ..config import LM_STUDIO_BASE_URL, LM_STUDIO_MODEL
 @ui.page('/login')
 def login_page():
     theme = get_theme_classes()
+    theme_manager = get_theme_manager()
+    theme_manager.apply_theme()
     
     # Add viewport and Material Icons
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
     ui.add_head_html('<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">')
     
-    with ui.column().classes(f'min-h-screen {theme["bg_primary"]} {theme["text_primary"]} items-center justify-center p-4 sm:p-8'):
-        with ui.card().classes(f'{theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl'):
-            # Logo and title
-            ui.html('<div class="text-6xl text-center mb-6">🍽️</div>')
-            ui.html(f'<h1 class="text-2xl sm:text-3xl font-bold {theme["gradient_text"]} text-center mb-4">Welcome to MyFoodPal</h1>')
-            ui.html(f'<p class="text-sm {theme["text_secondary"]} text-center mb-8">Your AI-powered recipe companion</p>')
+    # Get sample recipe images
+    import os
+    import random
+    
+    media_path = "media"
+    sample_recipes = []
+    
+    try:
+        if os.path.exists(media_path):
+            image_files = [f for f in os.listdir(media_path) if f.endswith('.png')]
+            # Select 6 random images for the showcase
+            selected_images = random.sample(image_files, min(6, len(image_files)))
             
-            # Login/Register toggle
-            is_login = {'value': True}
-            toggle_container = ui.row().classes('w-full mb-6')
-            form_container = ui.column().classes('w-full gap-4')
+            for img_file in selected_images:
+                # Extract recipe name from filename (remove extension and ID)
+                recipe_name = img_file.replace('.png', '').replace('_', ' ')
+                # Remove the hash ID at the end
+                recipe_name = ' '.join(recipe_name.split()[:-1]) if len(recipe_name.split()) > 1 else recipe_name
+                recipe_name = recipe_name.replace('  ', ' ').strip()
+                
+                sample_recipes.append({
+                    "name": recipe_name,
+                    "image": f"/media/{img_file}"
+                })
+    except Exception as e:
+        print(f"Error loading sample recipes: {e}")
+        # Fallback sample data
+        sample_recipes = [
+            {"name": "Coq Au Vin with Baked Asparagus", "image": "/media/placeholder.png"},
+            {"name": "Mediterranean Stuffed Chicken", "image": "/media/placeholder.png"},
+            {"name": "Spiced Lamb Kofta with Rice", "image": "/media/placeholder.png"}
+        ]
+    
+    with ui.column().classes(f'min-h-screen {theme["bg_primary"]} overflow-x-hidden'):
+        
+        # Hero Section
+        with ui.row().classes('w-full min-h-screen items-center'):
+            # Left side - Content
+            with ui.column().classes('flex-1 p-8 lg:p-16 max-w-2xl'):
+                # Logo and brand
+                with ui.row().classes('items-center gap-4 mb-8'):
+                    ui.html(f'''
+                        <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-3xl">
+                            🍽️
+                        </div>
+                    ''')
+                    ui.html(f'<h1 class="text-4xl font-bold {theme["gradient_text"]}">MyFoodPal</h1>')
+                
+                # Hero text
+                ui.html(f'<h2 class="text-3xl lg:text-5xl font-bold {theme["text_primary"]} mb-6 leading-tight">Your AI-Powered<br><span class="{theme["gradient_text"]}">Culinary Companion</span></h2>')
+                ui.html(f'<p class="text-xl {theme["text_secondary"]} mb-8 leading-relaxed">Transform your cooking experience with personalized recipes, smart shopping lists, and AI-generated food images. Join thousands of home chefs discovering their next favorite meal.</p>')
+                
+                # Key features
+                features = [
+                    {"icon": "🎯", "text": "Personalized recipe recommendations based on your tastes"},
+                    {"icon": "🛒", "text": "Smart shopping lists that save time and money"},
+                    {"icon": "🖼️", "text": "AI-generated food images for every recipe"},
+                    {"icon": "⚡", "text": "Lightning-fast recipe generation in seconds"}
+                ]
+                
+                with ui.column().classes('gap-4 mb-10'):
+                    for feature in features:
+                        with ui.row().classes('items-center gap-4'):
+                            ui.html(f'<span class="text-2xl">{feature["icon"]}</span>')
+                            ui.html(f'<span class="text-lg {theme["text_primary"]}">{feature["text"]}</span>')
+                
+                # CTA Button
+                with ui.button(on_click=lambda: _scroll_to_auth()).classes(f'{theme["button_primary"]} font-bold py-6 px-12 rounded-2xl text-xl shadow-lg transition-all duration-300 hover:scale-105'):
+                    with ui.row().classes('items-center gap-4'):
+                        ui.html('<span class="text-2xl">✨</span>')
+                        ui.html('<span>Start Cooking Today</span>')
+                
+                # Social proof
+                ui.html(f'<p class="text-sm {theme["text_muted"]} mt-8">Join over 10,000+ home chefs already using MyFoodPal</p>')
             
-            def set_login_mode():
-                is_login['value'] = True
-                update_form()
-                update_buttons()
+            # Right side - Recipe showcase
+            with ui.column().classes('flex-1 p-8 lg:p-16 hidden lg:flex'):
+                _create_recipe_showcase(sample_recipes, theme)
+        
+        # Features Section
+        with ui.column().classes(f'w-full {theme["bg_surface"]} py-20 px-8'):
+            ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-16">Why Choose MyFoodPal?</h3>')
             
-            def set_register_mode():
-                is_login['value'] = False
-                update_form()
-                update_buttons()
+            with ui.row().classes('max-w-6xl mx-auto gap-8 flex-wrap justify-center'):
+                feature_cards = [
+                    {
+                        "icon": "🧠",
+                        "title": "AI-Powered Intelligence",
+                        "description": "Our advanced AI learns your preferences and dietary restrictions to suggest perfect recipes every time."
+                    },
+                    {
+                        "icon": "🏠",
+                        "title": "Kitchen Inventory Management",
+                        "description": "Track what you have at home and get recipe suggestions based on available ingredients."
+                    },
+                    {
+                        "icon": "📱",
+                        "title": "Beautiful, Modern Interface",
+                        "description": "Enjoy a sleek, intuitive design that makes cooking planning a joy, not a chore."
+                    }
+                ]
+                
+                for card in feature_cards:
+                    with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-8 max-w-xs text-center border {theme["border"]} hover:scale-105 transition-transform'):
+                        ui.html(f'<div class="text-5xl mb-6">{card["icon"]}</div>')
+                        ui.html(f'<h4 class="text-xl font-bold {theme["text_primary"]} mb-4">{card["title"]}</h4>')
+                        ui.html(f'<p class="{theme["text_secondary"]} leading-relaxed">{card["description"]}</p>')
+        
+        # Recipe Gallery Section
+        with ui.column().classes('w-full py-20 px-8').add_style('id="recipe-gallery"'):
+            ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-4">Discover Amazing Recipes</h3>')
+            ui.html(f'<p class="text-xl {theme["text_secondary"]} text-center mb-16 max-w-3xl mx-auto">From comfort food classics to international cuisines, our AI creates personalized recipes with stunning visuals</p>')
             
-            def update_buttons():
-                toggle_container.clear()
-                with toggle_container:
-                    if is_login['value']:
-                        ui.button('Login', on_click=set_login_mode).classes('flex-1 py-3 px-4 rounded-l-xl font-semibold').style(
-                            'background-color: #059669; color: white; border: none; font-weight: 600; min-height: 48px;'
-                        )
-                        ui.button('Register', on_click=set_register_mode).classes('flex-1 py-3 px-4 rounded-r-xl font-semibold').style(
-                            'background-color: white; color: #374151; border: 1px solid #d1d5db; font-weight: 600; min-height: 48px;'
-                        )
-                    else:
-                        ui.button('Login', on_click=set_login_mode).classes('flex-1 py-3 px-4 rounded-l-xl font-semibold').style(
-                            'background-color: white; color: #374151; border: 1px solid #d1d5db; font-weight: 600; min-height: 48px;'
-                        )
-                        ui.button('Register', on_click=set_register_mode).classes('flex-1 py-3 px-4 rounded-r-xl font-semibold').style(
-                            'background-color: #059669; color: white; border: none; font-weight: 600; min-height: 48px;'
-                        )
-            
-            def update_form():
-                form_container.clear()
-                with form_container:
-                    if is_login['value']:
-                        # Login form
-                        email_input = ui.input('Email', placeholder='your@email.com').classes(
-                            f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full'
-                        )
-                        password_input = ui.input('Password', password=True).classes(
-                            f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full'
-                        )
+            # Recipe grid
+            with ui.row().classes('max-w-6xl mx-auto gap-6 flex-wrap justify-center'):
+                for recipe in sample_recipes:
+                    with ui.card().classes(f'{theme["card_interactive"]} rounded-2xl overflow-hidden border {theme["border"]} max-w-sm'):
+                        # Recipe image
+                        ui.html(f'''
+                            <img src="{recipe['image']}" 
+                                 alt="{recipe['name']}"
+                                 class="w-full h-48 object-cover"
+                                 loading="lazy"
+                                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y1ZjVmNSIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7wn429IERlbGljaW91cyBSZWNpcGU8L3RleHQ+Cjwvc3ZnPg=='"
+                            />
+                        ''')
                         
-                        async def handle_login():
-                            try:
-                                db = next(get_db())
-                                user = authenticate_user(db, email_input.value, password_input.value)
-                                if user:
-                                    set_current_user(user)
-                                    ui.notify(f'Welcome back, {user.name}!', type='positive')
-                                    ui.navigate.to('/')
-                                else:
-                                    ui.notify('Invalid email or password', type='negative')
-                            except Exception as e:
-                                ui.notify(f'Login failed: {str(e)}', type='negative')
-                        
-                        ui.button('Login', on_click=handle_login).classes(
-                            f'{theme["button_primary"]} text-white w-full py-4 rounded-xl text-lg font-semibold'
-                        )
-                    else:
-                        # Register form
-                        name_input = ui.input('Full Name', placeholder='John Doe').classes(
-                            f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full'
-                        )
-                        email_input = ui.input('Email', placeholder='your@email.com').classes(
-                            f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full'
-                        )
-                        password_input = ui.input('Password', password=True).classes(
-                            f'{theme["input_bg"]} rounded-xl border-2 {theme["border"]} p-4 w-full'
-                        )
-                        
-                        async def handle_register():
-                            try:
-                                db = next(get_db())
-                                if get_user_by_email(db, email_input.value):
-                                    ui.notify('Email already registered', type='negative')
-                                    return
+                        # Recipe info
+                        with ui.column().classes('p-6'):
+                            ui.html(f'<h4 class="text-lg font-bold {theme["text_primary"]} mb-2 line-clamp-2">{recipe["name"]}</h4>')
+                            ui.html(f'<p class="text-sm {theme["text_muted"]} mb-4">AI-generated recipe with personalized ingredients</p>')
+                            
+                            with ui.row().classes('items-center justify-between'):
+                                with ui.row().classes('gap-2'):
+                                    ui.html(f'<span class="{theme["badge_bg"]} px-3 py-1 rounded-full text-xs font-medium">⏱️ 30 min</span>')
+                                    ui.html(f'<span class="{theme["badge_bg"]} px-3 py-1 rounded-full text-xs font-medium">🍽️ 4 servings</span>')
                                 
-                                user_data = UserCreate(
-                                    email=email_input.value,
-                                    password=password_input.value,
-                                    name=name_input.value
-                                )
-                                user = create_user(db, user_data)
-                                set_current_user(user)
-                                ui.notify(f'Welcome to MyFoodPal, {user.name}!', type='positive')
-                                ui.navigate.to('/')
-                            except Exception as e:
-                                ui.notify(f'Registration failed: {str(e)}', type='negative')
-                        
-                        ui.button('Create Account', on_click=handle_register).classes(
-                            f'{theme["button_primary"]} text-white w-full py-4 rounded-xl text-lg font-semibold'
-                        )
+                                ui.button(
+                                    '→',
+                                    on_click=lambda: _scroll_to_auth()
+                                ).classes(f'{theme["button_primary"]} w-10 h-10 rounded-full text-white font-bold').tooltip('Try this recipe!')
+        
+        # Authentication Section
+        with ui.column().classes(f'{theme["bg_surface"]} w-full py-20 px-8').add_style('id="auth-section"'):
+            ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-16">Ready to Start Cooking?</h3>')
             
-            update_buttons()
+            with ui.row().classes('max-w-6xl mx-auto gap-12 items-center'):
+                # Left side - Benefits
+                with ui.column().classes('flex-1 hidden lg:flex'):
+                    ui.html(f'<h4 class="text-2xl font-bold {theme["text_primary"]} mb-8">What you get with MyFoodPal:</h4>')
+                    
+                    benefits = [
+                        "🎯 Unlimited personalized recipes",
+                        "🛒 Smart shopping list generation",
+                        "📱 Beautiful mobile & desktop experience", 
+                        "🖼️ AI-generated food photography",
+                        "💾 Save and organize your favorite meals",
+                        "⚡ Lightning-fast recipe discovery"
+                    ]
+                    
+                    with ui.column().classes('gap-4'):
+                        for benefit in benefits:
+                            ui.html(f'<div class="flex items-center gap-4 text-lg {theme["text_primary"]}"><span class="text-2xl">{benefit.split()[0]}</span><span>{" ".join(benefit.split()[1:])}</span></div>')
+                
+                # Right side - Auth form
+                with ui.column().classes('flex-1 max-w-md'):
+                    _create_auth_form(theme)
+    
+    # Smooth scroll function
+    ui.add_head_html('''
+        <script>
+        function scrollToAuth() {
+            document.getElementById('auth-section').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+        </script>
+    ''')
+
+def _scroll_to_auth():
+    """Scroll to authentication section"""
+    ui.run_javascript('scrollToAuth()')
+
+def _create_recipe_showcase(sample_recipes, theme):
+    """Create animated recipe showcase"""
+    with ui.column().classes('gap-6'):
+        ui.html(f'<h3 class="text-2xl font-bold {theme["text_primary"]} mb-6 text-center">Featured Recipes</h3>')
+        
+        # Showcase grid
+        with ui.column().classes('gap-4'):
+            for i, recipe in enumerate(sample_recipes[:3]):
+                with ui.card().classes(f'{theme["card_interactive"]} rounded-xl overflow-hidden border {theme["border"]} hover:scale-105 transition-all duration-300'):
+                    with ui.row().classes('items-center gap-4 p-4'):
+                        # Mini recipe image
+                        ui.html(f'''
+                            <img src="{recipe['image']}" 
+                                 alt="{recipe['name']}"
+                                 class="w-16 h-16 object-cover rounded-lg"
+                                 loading="lazy"
+                                 onerror="this.innerHTML='<div class=&quot;w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg flex items-center justify-center text-2xl&quot;>🍽️</div>'"
+                            />
+                        ''')
+                        
+                        with ui.column().classes('flex-1'):
+                            ui.html(f'<h4 class="font-bold {theme["text_primary"]} text-sm mb-1 line-clamp-2">{recipe["name"]}</h4>')
+                            ui.html(f'<p class="text-xs {theme["text_muted"]}">AI-generated • Ready in 30 min</p>')
+
+def _create_auth_form(theme):
+    """Create the authentication form"""
+    with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-8 w-full border {theme["border"]} shadow-xl'):
+        # Form toggle
+        is_login = {'value': True}
+        
+        # Header
+        header_container = ui.column().classes('text-center mb-8')
+        toggle_container = ui.row().classes('w-full mb-6')
+        form_container = ui.column().classes('w-full gap-4')
+        
+        def update_header():
+            header_container.clear()
+            with header_container:
+                if is_login['value']:
+                    ui.html(f'<h4 class="text-2xl font-bold {theme["text_primary"]} mb-2">Welcome Back!</h4>')
+                    ui.html(f'<p class="{theme["text_secondary"]}">Sign in to continue your culinary journey</p>')
+                else:
+                    ui.html(f'<h4 class="text-2xl font-bold {theme["text_primary"]} mb-2">Join MyFoodPal</h4>')
+                    ui.html(f'<p class="{theme["text_secondary"]}">Start your personalized cooking adventure</p>')
+        
+        def set_login_mode():
+            is_login['value'] = True
+            update_header()
             update_form()
+            update_toggle()
+        
+        def set_register_mode():
+            is_login['value'] = False
+            update_header()
+            update_form()
+            update_toggle()
+        
+        def update_toggle():
+            toggle_container.clear()
+            with toggle_container:
+                if is_login['value']:
+                    ui.button('Sign In', on_click=set_login_mode).classes(f'{theme["nav_active"]} flex-1 py-3 px-4 rounded-l-xl font-semibold')
+                    ui.button('Register', on_click=set_register_mode).classes(f'{theme["nav_item"]} flex-1 py-3 px-4 rounded-r-xl font-semibold border {theme["border"]}')
+                else:
+                    ui.button('Sign In', on_click=set_login_mode).classes(f'{theme["nav_item"]} flex-1 py-3 px-4 rounded-l-xl font-semibold border {theme["border"]}')
+                    ui.button('Register', on_click=set_register_mode).classes(f'{theme["nav_active"]} flex-1 py-3 px-4 rounded-r-xl font-semibold')
+        
+        def update_form():
+            form_container.clear()
+            with form_container:
+                if is_login['value']:
+                    # Login form
+                    email_input = ui.input('Email', placeholder='your@email.com').classes(
+                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
+                    )
+                    password_input = ui.input('Password', password=True, placeholder='Enter your password').classes(
+                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
+                    )
+                    
+                    async def handle_login():
+                        try:
+                            db = next(get_db())
+                            user = authenticate_user(db, email_input.value, password_input.value)
+                            if user:
+                                set_current_user(user)
+                                ui.notify(f'Welcome back, {user.name}! 🍽️', type='positive')
+                                ui.navigate.to('/')
+                            else:
+                                ui.notify('Invalid email or password', type='negative')
+                        except Exception as e:
+                            ui.notify(f'Login failed: {str(e)}', type='negative')
+                    
+                    with ui.button(on_click=handle_login).classes(f'{theme["button_primary"]} w-full py-4 rounded-xl text-lg font-semibold mt-4'):
+                        with ui.row().classes('items-center justify-center gap-3'):
+                            ui.html('<span class="text-xl">🚀</span>')
+                            ui.html('<span>Sign In</span>')
+                else:
+                    # Register form
+                    name_input = ui.input('Full Name', placeholder='Your full name').classes(
+                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
+                    )
+                    email_input = ui.input('Email', placeholder='your@email.com').classes(
+                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
+                    )
+                    password_input = ui.input('Password', password=True, placeholder='Create a secure password').classes(
+                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
+                    )
+                    
+                    async def handle_register():
+                        try:
+                            db = next(get_db())
+                            if get_user_by_email(db, email_input.value):
+                                ui.notify('Email already registered', type='negative')
+                                return
+                            
+                            user_data = UserCreate(
+                                email=email_input.value,
+                                password=password_input.value,
+                                name=name_input.value
+                            )
+                            user = create_user(db, user_data)
+                            set_current_user(user)
+                            ui.notify(f'Welcome to MyFoodPal, {user.name}! ✨', type='positive')
+                            ui.navigate.to('/')
+                        except Exception as e:
+                            ui.notify(f'Registration failed: {str(e)}', type='negative')
+                    
+                    with ui.button(on_click=handle_register).classes(f'{theme["button_primary"]} w-full py-4 rounded-xl text-lg font-semibold mt-4'):
+                        with ui.row().classes('items-center justify-center gap-3'):
+                            ui.html('<span class="text-xl">✨</span>')
+                            ui.html('<span>Create Account</span>')
+                    
+                    # Terms notice
+                    ui.html(f'<p class="text-xs {theme["text_muted"]} text-center mt-4">By creating an account, you agree to our Terms of Service and Privacy Policy</p>')
+        
+        # Initialize
+        update_header()
+        update_toggle()
+        update_form()
 
 @ui.page('/')
 def main_page():
@@ -782,76 +1001,6 @@ def history_page():
         # Add bottom navigation for mobile
         create_bottom_navigation("plans", theme)
 
-@ui.page('/recipe-history')
-def recipe_history_page():
-    # Check if user is logged in
-    current_user = get_current_user()
-    if current_user is None:
-        ui.navigate.to('/login')
-        return
-    
-    theme = get_theme_classes()
-    theme_manager = get_theme_manager()
-    theme_manager.apply_theme()
-    
-    ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    
-    with ui.column().classes(f'min-h-screen {theme["bg_primary"]}'):
-        # Modern navigation header
-        navigation = ModernNavigation(current_user, theme)
-        navigation.create_header("recipes")
-        
-        # Content with modern styling
-        with ui.column().classes('flex-1 p-8 max-w-6xl mx-auto w-full'):
-            try:
-                db = next(get_db())
-                from ..database.operations import get_user_recipe_history
-                recipe_history = get_user_recipe_history(db, current_user['id'], 30)
-                
-                if recipe_history:
-                    ui.label(f'Your last {len(recipe_history)} unique recipes. We track these to ensure variety in your meal plans!').classes('text-lg text-gray-600 mb-6')
-                    
-                    for i, recipe in enumerate(recipe_history):
-                        with ui.card().classes('p-6 mb-4'):
-                            with ui.row().classes('items-start gap-4 w-full'):
-                                ui.chip(f'#{len(recipe_history) - i}', color='primary')
-                                with ui.column().classes('flex-1'):
-                                    ui.label(recipe.recipe_name).classes('text-xl font-bold mb-2')
-                                    ui.label(recipe.created_at.strftime("%B %d, %Y at %I:%M %p")).classes('text-gray-500 mb-4')
-                                    
-                                    # Recipe characteristics
-                                    with ui.row().classes('gap-2 mb-4 flex-wrap'):
-                                        if recipe.cooking_method:
-                                            cooking_method = recipe.cooking_method.split()[0] if recipe.cooking_method else "Unknown"
-                                            ui.chip(f'🔥 {cooking_method.title()}', color='blue')
-                                        if recipe.spice_profile:
-                                            spice_profile = recipe.spice_profile.split()[0] if recipe.spice_profile else "Unknown"
-                                            ui.chip(f'🌶️ {spice_profile.title()}', color='green')
-                                        if recipe.cuisine_inspiration:
-                                            cuisine = recipe.cuisine_inspiration.split()[0] if recipe.cuisine_inspiration else "Unknown"
-                                            ui.chip(f'🌍 {cuisine.title()}', color='purple')
-                                    
-                                    # Main ingredients
-                                    if recipe.main_ingredients:
-                                        ingredients_preview = recipe.main_ingredients[:60] + '...' if len(recipe.main_ingredients) > 60 else recipe.main_ingredients
-                                        ui.label(f'🥘 Key ingredients: {ingredients_preview}').classes('text-gray-600 text-sm')
-                else:
-                    # No recipe history yet
-                    with ui.card().classes('p-12 text-center'):
-                        ui.icon('menu_book', size='4rem').classes('text-gray-400 mb-4')
-                        ui.label('No Recipe History Yet').classes('text-2xl font-bold text-gray-800 mb-4')
-                        ui.label('Start creating meal plans to build your recipe history! We\'ll track your recipes to ensure maximum variety.').classes('text-gray-600 mb-6')
-                        ui.button('Create First Meal Plan', on_click=lambda: ui.navigate.to('/')).props('color=primary size=lg')
-            
-            except Exception as e:
-                ui.notify(f'Error loading recipe history: {str(e)}', type='negative')
-                with ui.card().classes('p-6 text-center'):
-                    ui.icon('error', size='3rem').classes('text-red-500 mb-4')
-                    ui.label('Error Loading Recipe History').classes('text-lg font-bold text-red-700 mb-2')
-                    ui.label(str(e)).classes('text-red-600')
-        
-        # Add bottom navigation for mobile
-        create_bottom_navigation("recipes", theme)
 
 @ui.page('/meal-plan/{meal_plan_id}')
 def meal_plan_detail_page(meal_plan_id: int):

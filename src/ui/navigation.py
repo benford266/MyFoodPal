@@ -37,8 +37,7 @@ class ModernNavigation:
         nav_items = [
             {"key": "home", "label": "Discover", "icon": "🏠", "path": "/"},
             {"key": "kitchen", "label": "My Kitchen", "icon": "🍳", "path": "/kitchen"},
-            {"key": "plans", "label": "Meal Plans", "icon": "📋", "path": "/history"},
-            {"key": "recipes", "label": "Recipe History", "icon": "📖", "path": "/recipe-history"}
+            {"key": "plans", "label": "Meal Plans", "icon": "📋", "path": "/history"}
         ]
         
         with ui.row().classes('bg-white/5 backdrop-blur-sm rounded-xl p-1 gap-1'):
@@ -97,6 +96,7 @@ class ModernNavigation:
                 menu_items = [
                     {"label": "👤 Profile Settings", "action": lambda: ui.notify("Profile settings coming soon!", type="info")},
                     {"label": "🍽️ Dietary Preferences", "action": lambda: ui.navigate.to("/")},
+                    {"label": "🍳 My Kitchen", "action": lambda: ui.navigate.to("/kitchen")},
                     {"label": "📊 Usage Statistics", "action": lambda: ui.notify("Statistics coming soon!", type="info")},
                     {"label": "❓ Help & Support", "action": lambda: ui.notify("Help documentation coming soon!", type="info")},
                 ]
@@ -148,8 +148,7 @@ def create_bottom_navigation(current_page: str, theme: Dict[str, str]) -> ui.row
     nav_items = [
         {"key": "home", "label": "Home", "icon": "🏠", "path": "/"},
         {"key": "kitchen", "label": "Kitchen", "icon": "🍳", "path": "/kitchen"},
-        {"key": "plans", "label": "Plans", "icon": "📋", "path": "/history"},
-        {"key": "recipes", "label": "Recipes", "icon": "📖", "path": "/recipe-history"}
+        {"key": "plans", "label": "Plans", "icon": "📋", "path": "/history"}
     ]
     
     with ui.row().classes(f'''
