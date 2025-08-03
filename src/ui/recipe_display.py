@@ -6,230 +6,131 @@ from typing import List, Dict, Any
 from ..database.connection import get_db
 from ..database.operations import create_or_update_recipe_rating
 from ..utils.pdf_export import generate_pdf_export
+from .components import create_modern_recipe_card, create_loading_recipe_card
+
+def _create_shopping_item(item: Dict[str, str], theme: Dict[str, str]):
+    """Create a modern shopping list item chip"""
+    quantity = item.get("quantity", "")
+    unit = item.get("unit", "")
+    item_name = item.get("item", "")
+    
+    if item_name:
+        display_text = f"{quantity} {unit} {item_name}".strip()
+        ui.html(f'''
+            <div class="{theme["chip_bg"]} rounded-xl px-4 py-3 flex items-center gap-3 min-w-fit transition-all duration-200 hover:scale-105 hover:shadow-md border {theme["border"]} group cursor-pointer">
+                <div class="w-3 h-3 bg-emerald-400 rounded-full flex-shrink-0 group-hover:bg-emerald-500 transition-colors"></div>
+                <span class="text-sm font-medium {theme["text_primary"]} whitespace-nowrap">{display_text}</span>
+            </div>
+        ''')
 
 def display_recipes_and_shopping_list(container, recipes: List[Dict[str, Any]], shopping_list: List[Dict[str, str]], theme: Dict[str, str], current_user: Dict, saved_meal_plan_id: int = None):
     """Display recipes and shopping list in the main page"""
     container.clear()
     
     with container:
-        # Display recipes
+        # Display recipes using modern components
         if recipes:
-            ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-6">🍽️ Your Personalized Recipes</h2>')
+            ui.html(f'<h2 class="text-3xl font-bold {theme["gradient_text"]} mb-8 text-center">🍽️ Your Personalized Recipes</h2>')
             
-            with ui.column().classes('gap-6'):
+            with ui.column().classes('gap-8'):
                 for i, recipe in enumerate(recipes, 1):
                     # Handle error recipes
                     if not isinstance(recipe, dict):
-                        with ui.card().classes(f'{theme["error_bg"]} {theme["border"]} rounded-3xl p-6 text-center'):
+                        with ui.card().classes(f'{theme["error_bg"]} rounded-2xl p-6 text-center border {theme["border"]}'):
                             ui.html('<div class="text-4xl mb-4">❌</div>')
-                            ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]} mb-4">Recipe {i} Generation Failed</h3>')
+                            ui.html(f'<h3 class="text-xl font-bold {theme["error_text"]} mb-4">Recipe {i} Generation Failed</h3>')
                             ui.html(f'<p class="text-sm {theme["text_secondary"]}">Unexpected response format</p>')
                         continue
                     
                     if "error" in recipe:
-                        with ui.card().classes(f'{theme["error_bg"]} {theme["border"]} rounded-3xl p-6 text-center'):
+                        with ui.card().classes(f'{theme["error_bg"]} rounded-2xl p-6 text-center border {theme["border"]}'):
                             ui.html('<div class="text-4xl mb-4">❌</div>')
-                            ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]} mb-4">Recipe {i} Generation Failed</h3>')
+                            ui.html(f'<h3 class="text-xl font-bold {theme["error_text"]} mb-4">Recipe {i} Generation Failed</h3>')
                             ui.html(f'<p class="text-sm {theme["text_secondary"]}">{recipe.get("error", "Unknown error")}</p>')
                         continue
                     
-                    with ui.card().classes(f'recipe-card {theme["card"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full'):
-                            # Recipe header with enhanced info and image
-                            with ui.column().classes('mb-6'):
-                                # Recipe image (if available)
-                                if recipe.get("image_path"):
-                                    print(f"🖼️ Displaying image for '{recipe.get('name')}': {recipe['image_path']}")
-                                    
-                                    with ui.row().classes('justify-center mb-4'):
-                                        try:
-                                            # Try to get the image URL using different methods
-                                            from ..imagegen.image_utils import get_image_display_url
-                                            
-                                            # Method 1: Try regular web URL first
-                                            image_url = get_image_display_url(recipe["image_path"], use_base64=False)
-                                            print(f"🔍 Web URL: {image_url}")
-                                            
-                                            # Method 2: Try base64 as backup
-                                            base64_url = get_image_display_url(recipe["image_path"], use_base64=True)
-                                            
-                                            if base64_url:
-                                                print(f"🔍 Using base64 image (length: {len(base64_url)})")
-                                                ui.html(f'''
-                                                    <img src="{base64_url}" 
-                                                         alt="{recipe.get('name', 'Recipe image')}"
-                                                         style="max-width: 24rem; height: 16rem; object-fit: cover; border-radius: 1rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); margin: 0 auto; display: block;"
-                                                         onload="console.log('Base64 image loaded successfully for {recipe.get('name', '')}')"
-                                                         onerror="console.error('Base64 image failed to load for {recipe.get('name', '')}');"
-                                                    />
-                                                ''')
-                                                print(f"✅ Base64 image element created successfully")
-                                            elif image_url:
-                                                print(f"🔍 Using web URL: {image_url}")
-                                                ui.html(f'''
-                                                    <img src="{image_url}" 
-                                                         alt="{recipe.get('name', 'Recipe image')}"
-                                                         style="max-width: 24rem; height: 16rem; object-fit: cover; border-radius: 1rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); margin: 0 auto; display: block;"
-                                                         onload="console.log('Web image loaded successfully: {image_url}')"
-                                                         onerror="console.error('Web image failed to load: {image_url}');"
-                                                    />
-                                                ''')
-                                                print(f"✅ Web image element created successfully")
-                                            else:
-                                                raise Exception("No valid image URL generated")
-                                            
-                                        except Exception as e:
-                                            print(f"❌ Error creating image element for {recipe.get('name')}: {e}")
-                                            # Show placeholder if image fails to load
-                                            with ui.card().classes('w-full max-w-md h-64 bg-gray-100 rounded-2xl flex items-center justify-center'):
-                                                ui.html('<div class="text-6xl opacity-50">🍽️</div>')
-                                                ui.html(f'<p class="text-xs text-gray-500 mt-2">Image error: {str(e)}</p>')
-                                else:
-                                    print(f"ℹ️ No image path found for recipe: {recipe.get('name')}")
-                                    # Show placeholder when no image
-                                    with ui.row().classes('justify-center mb-4'):
-                                        with ui.card().classes('w-full max-w-md h-64 bg-gray-100 rounded-2xl flex items-center justify-center'):
-                                            ui.html('<div class="text-6xl opacity-50">🍽️</div>')
-                                            ui.html('<p class="text-xs text-gray-500 mt-2">No image available</p>')
-                                
-                                with ui.row().classes('items-center gap-4 mb-3'):
-                                    ui.html(f'<div class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-full flex items-center justify-center text-xl font-bold">{i}</div>')
-                                    with ui.column().classes('flex-1'):
-                                        ui.html(f'<h3 class="text-2xl font-bold {theme["text_primary"]}">{recipe.get("name", "Untitled Recipe")}</h3>')
-                                        if recipe.get("description"):
-                                            ui.html(f'<p class="text-sm {theme["text_secondary"]} italic">{recipe.get("description")}</p>')
-                                
-                                # Creative elements row
-                                with ui.row().classes('gap-4 flex-wrap'):
-                                    if recipe.get("cuisine_inspiration"):
-                                        ui.html(f'<span class="{theme["chip_bg"]} {theme["border"]} rounded-full px-3 py-1 text-xs">🌍 {recipe.get("cuisine_inspiration")}</span>')
-                                    if recipe.get("difficulty"):
-                                        difficulty_emoji = {"Easy": "👶", "Medium": "👨‍🍳", "Advanced": "🧑‍🍳"}
-                                        ui.html(f'<span class="{theme["chip_bg"]} {theme["border"]} rounded-full px-3 py-1 text-xs">{difficulty_emoji.get(recipe.get("difficulty"), "👨‍🍳")} {recipe.get("difficulty")}</span>')
-                                    if recipe.get("prep_time"):
-                                        ui.html(f'<span class="{theme["chip_bg"]} {theme["border"]} rounded-full px-3 py-1 text-xs">⏱️ {recipe.get("prep_time")}</span>')
-                                    if recipe.get("cook_time"):
-                                        ui.html(f'<span class="{theme["chip_bg"]} {theme["border"]} rounded-full px-3 py-1 text-xs">🔥 {recipe.get("cook_time")}</span>')
-                                
-                                # Signature element highlight
-                                if recipe.get("signature_element"):
-                                    with ui.row().classes('items-center gap-2 mt-2'):
-                                        ui.html('<div class="text-lg">✨</div>')
-                                        ui.html(f'<span class="text-sm font-medium {theme["text_primary"]}">{recipe.get("signature_element")}</span>')
-                            
-                            # Rating section
-                            if saved_meal_plan_id:
-                                with ui.row().classes('justify-end mb-4'):
-                                    with ui.column().classes('items-end'):
-                                        ui.html(f'<span class="text-sm {theme["text_secondary"]} mb-1">Rate this recipe:</span>')
-                                        
-                                        def rate_recipe(recipe_idx: int, recipe_title: str, rating: int):
-                                            try:
-                                                db = next(get_db())
-                                                create_or_update_recipe_rating(
-                                                    db, current_user['id'], saved_meal_plan_id, recipe_idx, recipe_title, rating
-                                                )
-                                                ui.notify(f'Rated "{recipe_title}" {rating} star{"s" if rating != 1 else ""} ⭐', type='positive')
-                                            except Exception as e:
-                                                ui.notify(f'Rating failed: {str(e)}', type='negative')
-                                        
-                                        with ui.row().classes('gap-1 mt-2'):
-                                            for star in range(1, 6):
-                                                star_button = ui.button(
-                                                    '⭐',
-                                                    on_click=lambda idx=i-1, title=recipe.get("name", "Untitled Recipe"), r=star: rate_recipe(idx, title, r)
-                                                ).classes('text-lg bg-transparent border-none p-1 hover:scale-110 transition-transform cursor-pointer opacity-60 hover:opacity-100').style('min-width: 28px; min-height: 28px;')
-                                                
-                                                star_labels = {1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent'}
-                                                star_button.tooltip(f'{star} star{"s" if star != 1 else ""} - {star_labels[star]}')
-                            
-                            with ui.row().classes('gap-8 w-full'):
-                                # Left column - Ingredients
-                                with ui.column().classes('flex-1'):
-                                    with ui.row().classes('items-center gap-3 mb-4'):
-                                        ui.html('<div class="text-2xl">🛒</div>')
-                                        ui.html(f'<h4 class="text-lg font-semibold {theme["text_primary"]} mb-0">Ingredients</h4>')
-                                    
-                                    with ui.column().classes('gap-2'):
-                                        for ingredient in recipe.get("ingredients", []):
-                                            with ui.column().classes('gap-1'):
-                                                with ui.row().classes('items-center gap-3'):
-                                                    ui.html('<div class="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0"></div>')
-                                                    # Handle both string and object ingredient formats
-                                                    if isinstance(ingredient, dict):
-                                                        quantity = ingredient.get("quantity", "")
-                                                        unit = ingredient.get("unit", "")
-                                                        item = ingredient.get("item", "")
-                                                        display_text = f"{quantity} {unit} {item}".strip()
-                                                        
-                                                        # Show ingredient notes if available
-                                                        if ingredient.get("notes"):
-                                                            ui.html(f'<div class="flex-1"><span class="text-sm {theme["text_primary"]}">{display_text}</span><br><span class="text-xs {theme["text_secondary"]} italic ml-5">💡 {ingredient.get("notes")}</span></div>')
-                                                        else:
-                                                            ui.html(f'<span class="text-sm {theme["text_primary"]}">{display_text}</span>')
-                                                    else:
-                                                        display_text = str(ingredient) if ingredient else ""
-                                                        if display_text:
-                                                            ui.html(f'<span class="text-sm {theme["text_primary"]}">{display_text}</span>')
-                                
-                                # Right column - Instructions
-                                with ui.column().classes('flex-1'):
-                                    with ui.row().classes('items-center gap-3 mb-4'):
-                                        ui.html('<div class="text-2xl">👨‍🍳</div>')
-                                        ui.html(f'<h4 class="text-lg font-semibold {theme["text_primary"]} mb-0">Instructions</h4>')
-                                    
-                                    with ui.column().classes('gap-3'):
-                                        for j, step in enumerate(recipe.get("instructions", []), 1):
-                                            if step and step.strip():
-                                                with ui.row().classes('items-start gap-3'):
-                                                    ui.html(f'<div class="flex-shrink-0 w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold">{j}</div>')
-                                                    ui.html(f'<p class="text-sm {theme["text_primary"]} leading-relaxed flex-1 pt-1">{step}</p>')
-                            
-                            # Chef Tips and Presentation (if available)
-                            if recipe.get("chef_tips") or recipe.get("presentation"):
-                                with ui.row().classes('gap-8 w-full mt-6 pt-6 border-t'):
-                                    # Chef Tips
-                                    if recipe.get("chef_tips"):
-                                        with ui.column().classes('flex-1'):
-                                            with ui.row().classes('items-center gap-3 mb-4'):
-                                                ui.html('<div class="text-2xl">💡</div>')
-                                                ui.html(f'<h4 class="text-lg font-semibold {theme["text_primary"]} mb-0">Chef Tips</h4>')
-                                            with ui.column().classes('gap-2'):
-                                                for tip in recipe.get("chef_tips", []):
-                                                    with ui.row().classes('items-start gap-3'):
-                                                        ui.html('<div class="w-2 h-2 bg-yellow-400 rounded-full flex-shrink-0 mt-2"></div>')
-                                                        ui.html(f'<p class="text-sm {theme["text_primary"]} leading-relaxed flex-1">{tip}</p>')
-                                    
-                                    # Presentation
-                                    if recipe.get("presentation"):
-                                        with ui.column().classes('flex-1'):
-                                            with ui.row().classes('items-center gap-3 mb-4'):
-                                                ui.html('<div class="text-2xl">🎨</div>')
-                                                ui.html(f'<h4 class="text-lg font-semibold {theme["text_primary"]} mb-0">Presentation</h4>')
-                                            ui.html(f'<p class="text-sm {theme["text_primary"]} leading-relaxed">{recipe.get("presentation")}</p>')
+                    # Create rating handler
+                    def rate_recipe(recipe_idx: int, recipe_title: str, rating: int):
+                        try:
+                            db = next(get_db())
+                            create_or_update_recipe_rating(
+                                db, current_user['id'], saved_meal_plan_id, recipe_idx, recipe_title, rating
+                            )
+                            ui.notify(f'Rated "{recipe_title}" {rating} star{"s" if rating != 1 else ""} ⭐', type='positive')
+                        except Exception as e:
+                            ui.notify(f'Rating failed: {str(e)}', type='negative')
+                    
+                    # Create modern recipe card
+                    create_modern_recipe_card(
+                        recipe=recipe,
+                        index=i,
+                        theme=theme,
+                        on_rate=rate_recipe if saved_meal_plan_id else None,
+                        saved_meal_plan_id=saved_meal_plan_id,
+                        show_rating=bool(saved_meal_plan_id),
+                        show_image=True,
+                        card_style="featured" if i == 1 else "default"  # First recipe gets featured styling
+                    )
         
-        # Display shopping list
+        # Display shopping list with modern design
         if shopping_list:
-            with ui.card().classes(f'recipe-card {theme["success_bg"]} {theme["border"]} rounded-3xl p-6 sm:p-8 w-full mt-8'):
-                with ui.column().classes('items-center text-center mb-6'):
-                    ui.html('<div class="text-4xl mb-4">🛒</div>')
-                    ui.html(f'<h2 class="text-2xl font-bold {theme["text_primary"]} mb-4">Smart Shopping List</h2>')
-                    ui.html(f'<p class="text-lg {theme["text_secondary"]} max-w-2xl mx-auto">Everything you need for your {len(recipes)} recipes, intelligently optimized.</p>')
+            with ui.card().classes(f'{theme["card_elevated"]} rounded-3xl p-8 w-full mt-12 border {theme["border"]}'):
+                # Header section
+                with ui.column().classes('items-center text-center mb-8'):
+                    ui.html(f'''
+                        <div class="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-4xl text-white shadow-lg mb-4">
+                            🛒
+                        </div>
+                    ''')
+                    ui.html(f'<h2 class="text-3xl font-bold {theme["gradient_text"]} mb-4">Smart Shopping List</h2>')
+                    ui.html(f'<p class="text-lg {theme["text_secondary"]} max-w-3xl mx-auto">Everything you need for your {len(recipes)} recipes, intelligently optimized and organized for efficient shopping.</p>')
                 
-                with ui.row().classes('gap-3 flex-wrap justify-center'):
+                # Shopping list items with modern grid layout
+                with ui.column().classes('gap-6'):
+                    # Group items by category (if available) or show in grid
+                    categorized_items = {}
+                    uncategorized_items = []
+                    
                     for item in shopping_list:
-                        quantity = item.get("quantity", "")
-                        unit = item.get("unit", "")
-                        item_name = item.get("item", "")
+                        if item.get("item"):
+                            category = item.get("category", "Other")
+                            if category and category != "Other":
+                                if category not in categorized_items:
+                                    categorized_items[category] = []
+                                categorized_items[category].append(item)
+                            else:
+                                uncategorized_items.append(item)
+                    
+                    # Display categorized items
+                    for category, items in categorized_items.items():
+                        with ui.column().classes('mb-6'):
+                            ui.html(f'<h3 class="text-lg font-semibold {theme["text_primary"]} mb-3 flex items-center gap-2">')
+                            
+                            # Category icons
+                            category_icons = {
+                                "Proteins": "🥩", "Vegetables": "🥬", "Fruits": "🍎", 
+                                "Dairy": "🥛", "Grains": "🌾", "Spices": "🧂",
+                                "Pantry": "🥫", "Frozen": "🧊", "Bakery": "🥖"
+                            }
+                            icon = category_icons.get(category, "📦")
+                            
+                            ui.html(f'{icon} {category}</h3>')
+                            
+                            with ui.row().classes('gap-3 flex-wrap'):
+                                for item in items:
+                                    _create_shopping_item(item, theme)
+                    
+                    # Display uncategorized items
+                    if uncategorized_items:
+                        if categorized_items:  # Only show "Other" header if there are categories
+                            ui.html(f'<h3 class="text-lg font-semibold {theme["text_primary"]} mb-3 flex items-center gap-2">📦 Other Items</h3>')
                         
-                        # Only display if we have an item name
-                        if item_name:
-                            display_text = f"{quantity} {unit} {item_name}".strip()
-                            with ui.row().classes(f'chip-modern {theme["chip_bg"]} {theme["border"]} rounded-2xl px-6 py-3 items-center gap-3 min-w-fit'):
-                                ui.html('<div class="w-3 h-3 bg-emerald-400 rounded-full flex-shrink-0"></div>')
-                                ui.html(f'<span class="text-sm font-semibold {theme["text_primary"]}">{display_text}</span>')
+                        with ui.row().classes('gap-3 flex-wrap'):
+                            for item in uncategorized_items:
+                                _create_shopping_item(item, theme)
         
-        # Export and save buttons
-        with ui.row().classes('justify-center w-full mt-8 gap-4'):
+        # Modern action buttons
+        with ui.row().classes('justify-center w-full mt-12 gap-6'):
             def export_to_pdf():
                 """Export recipes to PDF"""
                 try:
@@ -254,18 +155,26 @@ def display_recipes_and_shopping_list(container, recipes: List[Dict[str, Any]], 
                     # Create download
                     filename = f"FoodPal_Recipes_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
                     ui.download(pdf_data, filename)
-                    ui.notify('PDF exported successfully!', type='positive')
+                    ui.notify('📄 PDF exported successfully!', type='positive')
                     
                 except Exception as e:
                     ui.notify(f'Export failed: {str(e)}', type='negative')
             
-            ui.button(
-                '📄 Export to PDF',
-                on_click=export_to_pdf
-            ).classes(f'{theme["button_secondary"]} text-white font-semibold py-3 px-6 rounded-xl shadow-lg')
+            # Export button with icon and modern styling
+            with ui.button(on_click=export_to_pdf).classes(f'{theme["button_secondary"]} font-semibold py-4 px-8 rounded-xl shadow-lg transition-all duration-200'):
+                with ui.row().classes('items-center gap-3'):
+                    ui.html('<span class="text-xl">📄</span>')
+                    ui.html('<span>Export to PDF</span>')
             
+            # View meal plan button (if available)
             if saved_meal_plan_id:
-                ui.button(
-                    '📋 View Meal Plan',
-                    on_click=lambda: ui.navigate.to(f'/meal-plan/{saved_meal_plan_id}')
-                ).classes(f'{theme["button_primary"]} text-white font-semibold py-3 px-6 rounded-xl shadow-lg')
+                with ui.button(on_click=lambda: ui.navigate.to(f'/meal-plan/{saved_meal_plan_id}')).classes(f'{theme["button_primary"]} font-semibold py-4 px-8 rounded-xl shadow-lg transition-all duration-200'):
+                    with ui.row().classes('items-center gap-3'):
+                        ui.html('<span class="text-xl">📋</span>')
+                        ui.html('<span>View Meal Plan</span>')
+                        
+            # Share button (future feature)
+            with ui.button().classes(f'{theme["button_ghost"]} font-semibold py-4 px-8 rounded-xl transition-all duration-200').props('disabled'):
+                with ui.row().classes('items-center gap-3'):
+                    ui.html('<span class="text-xl">🔗</span>')
+                    ui.html('<span>Share Recipes</span>')

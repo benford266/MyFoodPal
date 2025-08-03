@@ -35,4 +35,4 @@ app.mount('/api', fastapi_app)
 if __name__ in {"__main__", "__mp_main__"}:
     # Generate or use a storage secret for session management
     storage_secret = os.getenv("NICEGUI_STORAGE_SECRET", "foodpal-secret-key-2024-change-in-production")
-    ui.run(port=8080, title="FoodPal Recipe Generator", storage_secret=storage_secret)
+    ui.run(port=8080, title="MyFoodPal Recipe Generator", storage_secret=storage_secret)
