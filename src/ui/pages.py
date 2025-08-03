@@ -40,8 +40,8 @@ def login_page():
     try:
         if os.path.exists(media_path):
             image_files = [f for f in os.listdir(media_path) if f.endswith('.png')]
-            # Select 6 random images for the showcase
-            selected_images = random.sample(image_files, min(6, len(image_files)))
+            # Select 3 random images for the compact showcase
+            selected_images = random.sample(image_files, min(3, len(image_files)))
             
             for img_file in selected_images:
                 # Extract recipe name from filename (remove extension and ID)
@@ -65,294 +65,159 @@ def login_page():
     
     with ui.column().classes(f'min-h-screen {theme["bg_primary"]} overflow-x-hidden'):
         
-        # Hero Section
-        with ui.row().classes('w-full min-h-screen items-center'):
-            # Left side - Content
-            with ui.column().classes('flex-1 p-8 lg:p-16 max-w-2xl'):
-                # Logo and brand
-                with ui.row().classes('items-center gap-4 mb-8'):
-                    ui.html(f'''
-                        <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-3xl">
-                            🍽️
-                        </div>
-                    ''')
-                    ui.html(f'<h1 class="text-4xl font-bold {theme["gradient_text"]}">MyFoodPal</h1>')
-                
-                # Hero text
-                ui.html(f'<h2 class="text-3xl lg:text-5xl font-bold {theme["text_primary"]} mb-6 leading-tight">Your AI-Powered<br><span class="{theme["gradient_text"]}">Culinary Companion</span></h2>')
-                ui.html(f'<p class="text-xl {theme["text_secondary"]} mb-8 leading-relaxed">Transform your cooking experience with personalized recipes, smart shopping lists, and AI-generated food images. Join thousands of home chefs discovering their next favorite meal.</p>')
-                
-                # Key features
+        # Top navigation bar with auth
+        with ui.row().classes(f'w-full p-6 items-center justify-between {theme["bg_surface"]} border-b {theme["border"]}'):
+            # Left side - Logo and brand
+            with ui.row().classes('items-center gap-3'):
+                ui.html(f'''
+                    <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-2xl">
+                        🍽️
+                    </div>
+                ''')
+                ui.html(f'<h1 class="text-2xl font-bold {theme["gradient_text"]}">MyFoodPal</h1>')
+            
+            # Right side - Auth form
+            with ui.row().classes('items-center gap-4'):
+                _create_compact_auth_form(theme)
+        
+        # Hero Section - More compact
+        with ui.column().classes('w-full py-16 px-8 text-center max-w-4xl mx-auto'):
+            # Hero text
+            ui.html(f'<h2 class="text-4xl lg:text-6xl font-bold {theme["text_primary"]} mb-6 leading-tight">Your AI-Powered<br><span class="{theme["gradient_text"]}">Culinary Companion</span></h2>')
+            ui.html(f'<p class="text-xl {theme["text_secondary"]} mb-8 max-w-2xl mx-auto">Transform your cooking with personalized recipes, smart shopping lists, and AI-generated food images.</p>')
+            
+            # Key features - inline
+            with ui.row().classes('gap-8 justify-center mb-8 flex-wrap'):
                 features = [
-                    {"icon": "🎯", "text": "Personalized recipe recommendations based on your tastes"},
-                    {"icon": "🛒", "text": "Smart shopping lists that save time and money"},
-                    {"icon": "🖼️", "text": "AI-generated food images for every recipe"},
-                    {"icon": "⚡", "text": "Lightning-fast recipe generation in seconds"}
+                    {"icon": "🎯", "text": "Personalized Recipes"},
+                    {"icon": "🛒", "text": "Smart Shopping Lists"},
+                    {"icon": "🖼️", "text": "AI Food Images"},
+                    {"icon": "⚡", "text": "Lightning Fast"}
                 ]
                 
-                with ui.column().classes('gap-4 mb-10'):
-                    for feature in features:
-                        with ui.row().classes('items-center gap-4'):
-                            ui.html(f'<span class="text-2xl">{feature["icon"]}</span>')
-                            ui.html(f'<span class="text-lg {theme["text_primary"]}">{feature["text"]}</span>')
-                
-                # CTA Button
-                with ui.button(on_click=lambda: _scroll_to_auth()).classes(f'{theme["button_primary"]} font-bold py-6 px-12 rounded-2xl text-xl shadow-lg transition-all duration-300 hover:scale-105'):
-                    with ui.row().classes('items-center gap-4'):
-                        ui.html('<span class="text-2xl">✨</span>')
-                        ui.html('<span>Start Cooking Today</span>')
-                
-                # Social proof
-                ui.html(f'<p class="text-sm {theme["text_muted"]} mt-8">Join over 10,000+ home chefs already using MyFoodPal</p>')
+                for feature in features:
+                    with ui.column().classes('items-center text-center'):
+                        ui.html(f'<span class="text-3xl mb-2">{feature["icon"]}</span>')
+                        ui.html(f'<span class="text-sm {theme["text_primary"]} font-medium">{feature["text"]}</span>')
             
-            # Right side - Recipe showcase
-            with ui.column().classes('flex-1 p-8 lg:p-16 hidden lg:flex'):
-                _create_recipe_showcase(sample_recipes, theme)
-        
-        # Features Section
-        with ui.column().classes(f'w-full {theme["bg_surface"]} py-20 px-8'):
-            ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-16">Why Choose MyFoodPal?</h3>')
-            
-            with ui.row().classes('max-w-6xl mx-auto gap-8 flex-wrap justify-center'):
-                feature_cards = [
-                    {
-                        "icon": "🧠",
-                        "title": "AI-Powered Intelligence",
-                        "description": "Our advanced AI learns your preferences and dietary restrictions to suggest perfect recipes every time."
-                    },
-                    {
-                        "icon": "🏠",
-                        "title": "Kitchen Inventory Management",
-                        "description": "Track what you have at home and get recipe suggestions based on available ingredients."
-                    },
-                    {
-                        "icon": "📱",
-                        "title": "Beautiful, Modern Interface",
-                        "description": "Enjoy a sleek, intuitive design that makes cooking planning a joy, not a chore."
-                    }
-                ]
-                
-                for card in feature_cards:
-                    with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-8 max-w-xs text-center border {theme["border"]} hover:scale-105 transition-transform'):
-                        ui.html(f'<div class="text-5xl mb-6">{card["icon"]}</div>')
-                        ui.html(f'<h4 class="text-xl font-bold {theme["text_primary"]} mb-4">{card["title"]}</h4>')
-                        ui.html(f'<p class="{theme["text_secondary"]} leading-relaxed">{card["description"]}</p>')
-        
-        # Recipe Gallery Section
-        with ui.column().classes('w-full py-20 px-8'):
-            ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-4">Discover Amazing Recipes</h3>')
-            ui.html(f'<p class="text-xl {theme["text_secondary"]} text-center mb-16 max-w-3xl mx-auto">From comfort food classics to international cuisines, our AI creates personalized recipes with stunning visuals</p>')
-            
-            # Recipe grid
-            with ui.row().classes('max-w-6xl mx-auto gap-6 flex-wrap justify-center'):
+            # Sample recipes - horizontal showcase
+            ui.html(f'<h3 class="text-2xl font-bold {theme["text_primary"]} mb-6">Sample Recipes</h3>')
+            with ui.row().classes('gap-4 justify-center flex-wrap mb-8'):
                 for recipe in sample_recipes:
-                    with ui.card().classes(f'{theme["card_interactive"]} rounded-2xl overflow-hidden border {theme["border"]} max-w-sm'):
+                    with ui.card().classes(f'{theme["card_interactive"]} rounded-xl overflow-hidden border {theme["border"]} w-48'):
                         # Recipe image
                         ui.html(f'''
                             <img src="{recipe['image']}" 
                                  alt="{recipe['name']}"
-                                 class="w-full h-48 object-cover"
+                                 class="w-full h-32 object-cover"
                                  loading="lazy"
                                  onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y1ZjVmNSIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7wn429IERlbGljaW91cyBSZWNpcGU8L3RleHQ+Cjwvc3ZnPg=='"
                             />
                         ''')
                         
                         # Recipe info
-                        with ui.column().classes('p-6'):
-                            ui.html(f'<h4 class="text-lg font-bold {theme["text_primary"]} mb-2 line-clamp-2">{recipe["name"]}</h4>')
-                            
-                            with ui.row().classes('items-center justify-between'):
-                                with ui.row().classes('gap-2'):
-                                    ui.html(f'<span class="{theme["badge_bg"]} px-3 py-1 rounded-full text-xs font-medium">⏱️ 30 min</span>')
-                                    ui.html(f'<span class="{theme["badge_bg"]} px-3 py-1 rounded-full text-xs font-medium">🍽️ 4 servings</span>')
-                                
-                                ui.button(
-                                    '→',
-                                    on_click=lambda: _scroll_to_auth()
-                                ).classes(f'{theme["button_primary"]} w-10 h-10 rounded-full text-white font-bold').tooltip('Try this recipe!')
-        
-        # Authentication Section
-        with ui.column().classes(f'{theme["bg_surface"]} w-full py-20 px-8'):
-            ui.html(f'<h3 class="text-4xl font-bold {theme["text_primary"]} text-center mb-16">Ready to Start Cooking?</h3>')
+                        with ui.column().classes('p-3'):
+                            ui.html(f'<h4 class="text-sm font-bold {theme["text_primary"]} line-clamp-2">{recipe["name"]}</h4>')
             
-            with ui.row().classes('max-w-6xl mx-auto gap-12 items-center'):
-                # Left side - Benefits
-                with ui.column().classes('flex-1 hidden lg:flex'):
-                    ui.html(f'<h4 class="text-2xl font-bold {theme["text_primary"]} mb-8">What you get with MyFoodPal:</h4>')
-                    
-                    benefits = [
-                        "🎯 Unlimited personalized recipes",
-                        "🛒 Smart shopping list generation",
-                        "📱 Beautiful mobile & desktop experience", 
-                        "🖼️ AI-generated food photography",
-                        "💾 Save and organize your favorite meals",
-                        "⚡ Lightning-fast recipe discovery"
-                    ]
-                    
-                    with ui.column().classes('gap-4'):
-                        for benefit in benefits:
-                            ui.html(f'<div class="flex items-center gap-4 text-lg {theme["text_primary"]}"><span class="text-2xl">{benefit.split()[0]}</span><span>{" ".join(benefit.split()[1:])}</span></div>')
-                
-                # Right side - Auth form
-                with ui.column().classes('flex-1 max-w-md'):
-                    _create_auth_form(theme)
+            # Social proof
+            ui.html(f'<p class="text-sm {theme["text_muted"]}">Join over 10,000+ home chefs already using MyFoodPal</p>')
+
+def _create_compact_auth_form(theme):
+    """Create compact authentication form for top navigation"""
+    # Form state
+    is_login = {'value': True}
     
-    # Smooth scroll function
-    ui.add_head_html('''
-        <script>
-        function scrollToAuth() {
-            // Scroll to bottom of page where auth section is
-            window.scrollTo({ 
-                top: document.body.scrollHeight,
-                behavior: 'smooth' 
-            });
-        }
-        </script>
-    ''')
+    # Toggle button
+    toggle_text = ui.button(
+        'Sign In',
+        on_click=lambda: _toggle_auth_mode(is_login, toggle_text, form_container, theme)
+    ).classes(f'{theme["button_ghost"]} px-4 py-2 rounded-lg text-sm')
+    
+    # Form container
+    form_container = ui.column().classes('absolute top-16 right-0 z-50').style('min-width: 300px;')
+    
+    # Initially hidden
+    _create_auth_popup(is_login, form_container, theme, toggle_text)
 
-def _scroll_to_auth():
-    """Scroll to authentication section"""
-    ui.run_javascript('scrollToAuth()')
+def _toggle_auth_mode(is_login, toggle_text, form_container, theme):
+    """Toggle between login and register modes"""
+    is_login['value'] = not is_login['value']
+    toggle_text.text = 'Register' if is_login['value'] else 'Sign In'
+    _create_auth_popup(is_login, form_container, theme, toggle_text)
 
-def _create_recipe_showcase(sample_recipes, theme):
-    """Create animated recipe showcase"""
-    with ui.column().classes('gap-6'):
-        ui.html(f'<h3 class="text-2xl font-bold {theme["text_primary"]} mb-6 text-center">Featured Recipes</h3>')
-        
-        # Showcase grid
-        with ui.column().classes('gap-4'):
-            for i, recipe in enumerate(sample_recipes[:3]):
-                with ui.card().classes(f'{theme["card_interactive"]} rounded-xl overflow-hidden border {theme["border"]} hover:scale-105 transition-all duration-300'):
-                    with ui.row().classes('items-center gap-4 p-4'):
-                        # Mini recipe image
-                        ui.html(f'''
-                            <img src="{recipe['image']}" 
-                                 alt="{recipe['name']}"
-                                 class="w-16 h-16 object-cover rounded-lg"
-                                 loading="lazy"
-                                 onerror="this.innerHTML='<div class=&quot;w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg flex items-center justify-center text-2xl&quot;>🍽️</div>'"
-                            />
-                        ''')
-                        
-                        with ui.column().classes('flex-1'):
-                            ui.html(f'<h4 class="font-bold {theme["text_primary"]} text-sm mb-1 line-clamp-2">{recipe["name"]}</h4>')
-                            ui.html(f'<p class="text-xs {theme["text_muted"]}">AI-generated • Ready in 30 min</p>')
-
-def _create_auth_form(theme):
-    """Create the authentication form"""
-    with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-8 w-full border {theme["border"]} shadow-xl'):
-        # Form toggle
-        is_login = {'value': True}
-        
-        # Header
-        header_container = ui.column().classes('text-center mb-8')
-        toggle_container = ui.row().classes('w-full mb-6')
-        form_container = ui.column().classes('w-full gap-4')
-        
-        def update_header():
-            header_container.clear()
-            with header_container:
-                if is_login['value']:
-                    ui.html(f'<h4 class="text-2xl font-bold {theme["text_primary"]} mb-2">Welcome Back!</h4>')
-                    ui.html(f'<p class="{theme["text_secondary"]}">Sign in to continue your culinary journey</p>')
-                else:
-                    ui.html(f'<h4 class="text-2xl font-bold {theme["text_primary"]} mb-2">Join MyFoodPal</h4>')
-                    ui.html(f'<p class="{theme["text_secondary"]}">Start your personalized cooking adventure</p>')
-        
-        def set_login_mode():
-            is_login['value'] = True
-            update_header()
-            update_form()
-            update_toggle()
-        
-        def set_register_mode():
-            is_login['value'] = False
-            update_header()
-            update_form()
-            update_toggle()
-        
-        def update_toggle():
-            toggle_container.clear()
-            with toggle_container:
-                if is_login['value']:
-                    ui.button('Sign In', on_click=set_login_mode).classes(f'{theme["nav_active"]} flex-1 py-3 px-4 rounded-l-xl font-semibold')
-                    ui.button('Register', on_click=set_register_mode).classes(f'{theme["nav_item"]} flex-1 py-3 px-4 rounded-r-xl font-semibold border {theme["border"]}')
-                else:
-                    ui.button('Sign In', on_click=set_login_mode).classes(f'{theme["nav_item"]} flex-1 py-3 px-4 rounded-l-xl font-semibold border {theme["border"]}')
-                    ui.button('Register', on_click=set_register_mode).classes(f'{theme["nav_active"]} flex-1 py-3 px-4 rounded-r-xl font-semibold')
-        
-        def update_form():
-            form_container.clear()
-            with form_container:
-                if is_login['value']:
-                    # Login form
-                    email_input = ui.input('Email', placeholder='your@email.com').classes(
-                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
-                    )
-                    password_input = ui.input('Password', password=True, placeholder='Enter your password').classes(
-                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
-                    )
-                    
-                    async def handle_login():
-                        try:
-                            db = next(get_db())
-                            user = authenticate_user(db, email_input.value, password_input.value)
-                            if user:
-                                set_current_user(user)
-                                ui.notify(f'Welcome back, {user.name}! 🍽️', type='positive')
-                                ui.navigate.to('/')
-                            else:
-                                ui.notify('Invalid email or password', type='negative')
-                        except Exception as e:
-                            ui.notify(f'Login failed: {str(e)}', type='negative')
-                    
-                    with ui.button(on_click=handle_login).classes(f'{theme["button_primary"]} w-full py-4 rounded-xl text-lg font-semibold mt-4'):
-                        with ui.row().classes('items-center justify-center gap-3'):
-                            ui.html('<span class="text-xl">🚀</span>')
-                            ui.html('<span>Sign In</span>')
-                else:
-                    # Register form
-                    name_input = ui.input('Full Name', placeholder='Your full name').classes(
-                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
-                    )
-                    email_input = ui.input('Email', placeholder='your@email.com').classes(
-                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
-                    )
-                    password_input = ui.input('Password', password=True, placeholder='Create a secure password').classes(
-                        f'{theme["input_bg"]} rounded-xl border-2 p-4 w-full'
-                    )
-                    
-                    async def handle_register():
-                        try:
-                            db = next(get_db())
-                            if get_user_by_email(db, email_input.value):
-                                ui.notify('Email already registered', type='negative')
-                                return
-                            
-                            user_data = UserCreate(
-                                email=email_input.value,
-                                password=password_input.value,
-                                name=name_input.value
-                            )
-                            user = create_user(db, user_data)
+def _create_auth_popup(is_login, form_container, theme, toggle_text):
+    """Create the authentication popup"""
+    form_container.clear()
+    
+    with form_container:
+        with ui.card().classes(f'{theme["card_elevated"]} rounded-xl p-6 border {theme["border"]} shadow-xl bg-white'):
+            # Close button
+            with ui.row().classes('w-full justify-end mb-4'):
+                ui.button('×', on_click=lambda: form_container.clear()).classes('text-gray-400 hover:text-gray-600 text-xl w-8 h-8 p-0')
+            
+            # Header
+            if is_login['value']:
+                ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]} mb-4">Welcome Back!</h3>')
+            else:
+                ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]} mb-4">Join MyFoodPal</h3>')
+            
+            # Form fields
+            if not is_login['value']:
+                name_input = ui.input('Full Name', placeholder='Your full name').classes(
+                    f'{theme["input_bg"]} rounded-lg border p-3 w-full mb-4'
+                )
+            
+            email_input = ui.input('Email', placeholder='your@email.com').classes(
+                f'{theme["input_bg"]} rounded-lg border p-3 w-full mb-4'
+            )
+            password_input = ui.input('Password', password=True, placeholder='Password').classes(
+                f'{theme["input_bg"]} rounded-lg border p-3 w-full mb-4'
+            )
+            
+            # Submit button
+            async def handle_submit():
+                try:
+                    db = next(get_db())
+                    if is_login['value']:
+                        # Login
+                        user = authenticate_user(db, email_input.value, password_input.value)
+                        if user:
                             set_current_user(user)
-                            ui.notify(f'Welcome to MyFoodPal, {user.name}! ✨', type='positive')
+                            ui.notify(f'Welcome back, {user.name}! 🍽️', type='positive')
                             ui.navigate.to('/')
-                        except Exception as e:
-                            ui.notify(f'Registration failed: {str(e)}', type='negative')
-                    
-                    with ui.button(on_click=handle_register).classes(f'{theme["button_primary"]} w-full py-4 rounded-xl text-lg font-semibold mt-4'):
-                        with ui.row().classes('items-center justify-center gap-3'):
-                            ui.html('<span class="text-xl">✨</span>')
-                            ui.html('<span>Create Account</span>')
-                    
-                    # Terms notice
-                    ui.html(f'<p class="text-xs {theme["text_muted"]} text-center mt-4">By creating an account, you agree to our Terms of Service and Privacy Policy</p>')
-        
-        # Initialize
-        update_header()
-        update_toggle()
-        update_form()
+                        else:
+                            ui.notify('Invalid email or password', type='negative')
+                    else:
+                        # Register
+                        if get_user_by_email(db, email_input.value):
+                            ui.notify('Email already registered', type='negative')
+                            return
+                        
+                        user_data = UserCreate(
+                            email=email_input.value,
+                            password=password_input.value,
+                            name=name_input.value
+                        )
+                        user = create_user(db, user_data)
+                        set_current_user(user)
+                        ui.notify(f'Welcome to MyFoodPal, {user.name}! ✨', type='positive')
+                        ui.navigate.to('/')
+                except Exception as e:
+                    ui.notify(f'Authentication failed: {str(e)}', type='negative')
+            
+            ui.button(
+                'Sign In' if is_login['value'] else 'Create Account',
+                on_click=handle_submit
+            ).classes(f'{theme["button_primary"]} w-full py-3 rounded-lg font-semibold')
+            
+            # Mode toggle
+            with ui.row().classes('justify-center mt-4'):
+                if is_login['value']:
+                    ui.html(f'<p class="text-sm {theme["text_muted"]}">Don\'t have an account? </p>')
+                    ui.button('Register', on_click=lambda: _toggle_auth_mode(is_login, toggle_text, form_container, theme)).classes('text-sm text-blue-600 hover:underline bg-transparent border-none p-0 ml-1')
+                else:
+                    ui.html(f'<p class="text-sm {theme["text_muted"]}">Already have an account? </p>')
+                    ui.button('Sign In', on_click=lambda: _toggle_auth_mode(is_login, toggle_text, form_container, theme)).classes('text-sm text-blue-600 hover:underline bg-transparent border-none p-0 ml-1')
 
 @ui.page('/')
 def main_page():
