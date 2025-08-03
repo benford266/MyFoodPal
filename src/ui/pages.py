@@ -772,15 +772,15 @@ def history_page():
                                 ui.html('<span class="text-xl">✨</span>')
                                 ui.html('<span>Create First Meal Plan</span>')
         
-        # Add bottom navigation for mobile
-        create_bottom_navigation("plans", theme)
-            
             except Exception as e:
                 ui.notify(f'Error loading meal plans: {str(e)}', type='negative')
                 with ui.card().classes('p-6 text-center'):
                     ui.icon('error', size='3rem').classes('text-red-500 mb-4')
                     ui.label('Error Loading Meal Plans').classes('text-lg font-bold text-red-700 mb-2')
                     ui.label(str(e)).classes('text-red-600')
+        
+        # Add bottom navigation for mobile
+        create_bottom_navigation("plans", theme)
 
 @ui.page('/recipe-history')
 def recipe_history_page():
@@ -790,18 +790,19 @@ def recipe_history_page():
         ui.navigate.to('/login')
         return
     
+    theme = get_theme_classes()
+    theme_manager = get_theme_manager()
+    theme_manager.apply_theme()
+    
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
     
-    with ui.column().classes('min-h-screen').style('background: #f8fafc;'):
-        # Simple header
-        with ui.row().classes('w-full bg-white shadow-sm px-6 py-4 items-center justify-between'):
-            with ui.row().classes('items-center gap-4'):
-                ui.button(icon='arrow_back', on_click=lambda: ui.navigate.to('/')).props('flat round')
-                ui.label('Recipe History').classes('text-2xl font-bold text-gray-800')
-            ui.label(f'{current_user["name"]}\'s Kitchen').classes('text-gray-600')
+    with ui.column().classes(f'min-h-screen {theme["bg_primary"]}'):
+        # Modern navigation header
+        navigation = ModernNavigation(current_user, theme)
+        navigation.create_header("recipes")
         
-        # Content
-        with ui.column().classes('flex-1 p-6 max-w-4xl mx-auto w-full'):
+        # Content with modern styling
+        with ui.column().classes('flex-1 p-8 max-w-6xl mx-auto w-full'):
             try:
                 db = next(get_db())
                 from ..database.operations import get_user_recipe_history
@@ -848,6 +849,9 @@ def recipe_history_page():
                     ui.icon('error', size='3rem').classes('text-red-500 mb-4')
                     ui.label('Error Loading Recipe History').classes('text-lg font-bold text-red-700 mb-2')
                     ui.label(str(e)).classes('text-red-600')
+        
+        # Add bottom navigation for mobile
+        create_bottom_navigation("recipes", theme)
 
 @ui.page('/meal-plan/{meal_plan_id}')
 def meal_plan_detail_page(meal_plan_id: int):
