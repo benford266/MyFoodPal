@@ -139,6 +139,39 @@ async def init_database_simple():
         return {"status": "error", "message": str(e)}
 
 
+@app.post("/init-db-sqlalchemy")
+async def init_database_sqlalchemy():
+    """Initialize database with SQLAlchemy using absolute path"""
+    try:
+        from sqlalchemy import create_engine, text
+        from app.database.models import Base
+        
+        # Use absolute path
+        db_url = "sqlite:////app/foodpal_working.db"
+        engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        
+        # Test connection first
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        
+        # Verify tables were created
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table';"))
+            tables = [row[0] for row in result]
+        
+        return {
+            "status": "success", 
+            "message": f"SQLAlchemy database created at {db_url}",
+            "tables": tables
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
