@@ -172,56 +172,71 @@ async def init_database_sqlalchemy():
         return {"status": "error", "message": str(e)}
 
 
-@app.post("/test-register")
-async def test_register(user_data: dict):
-    """Test registration with working database"""
+@app.post("/test-auth-flow")
+async def test_auth_flow(user_data: dict):
+    """Test complete auth flow: register + login"""
     try:
-        from sqlalchemy import create_engine
-        from sqlalchemy.orm import sessionmaker
+        from app.services.auth import AuthService
+        from app.database.connection import SessionLocal
         from app.database.models import User
-        from passlib.context import CryptContext
         
-        # Use the working database
-        db_url = "sqlite:////app/foodpal_working.db"
-        engine = create_engine(db_url, connect_args={"check_same_thread": False})
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        
-        # Create password context
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        
-        # Create database session
+        auth_service = AuthService()
         db = SessionLocal()
         
         try:
-            # Check if user already exists
-            existing_user = db.query(User).filter(User.email == user_data["email"]).first()
+            email = user_data["email"]
+            password = user_data["password"]
+            name = user_data["name"]
+            
+            # Check if user exists
+            existing_user = db.query(User).filter(User.email == email).first()
+            
             if existing_user:
-                return {"status": "error", "message": "Email already registered"}
-            
-            # Hash password
-            hashed_password = pwd_context.hash(user_data["password"])
-            
-            # Create new user
-            db_user = User(
-                email=user_data["email"],
-                hashed_password=hashed_password,
-                name=user_data["name"]
-            )
-            
-            db.add(db_user)
-            db.commit()
-            db.refresh(db_user)
-            
-            return {
-                "status": "success",
-                "message": "User registered successfully",
-                "user": {
-                    "id": db_user.id,
-                    "email": db_user.email,
-                    "name": db_user.name
+                # Try to login with existing user
+                authenticated_user = auth_service.authenticate_user(db, email, password)
+                if authenticated_user:
+                    token = auth_service.create_access_token(data={"sub": email})
+                    return {
+                        "status": "success",
+                        "action": "login",
+                        "message": "User logged in successfully",
+                        "token": token,
+                        "user": {
+                            "id": authenticated_user.id,
+                            "email": authenticated_user.email,
+                            "name": authenticated_user.name
+                        }
+                    }
+                else:
+                    return {"status": "error", "message": "Invalid password"}
+            else:
+                # Register new user
+                hashed_password = auth_service.hash_password(password)
+                db_user = User(
+                    email=email,
+                    hashed_password=hashed_password,
+                    name=name
+                )
+                
+                db.add(db_user)
+                db.commit()
+                db.refresh(db_user)
+                
+                # Generate token for new user
+                token = auth_service.create_access_token(data={"sub": email})
+                
+                return {
+                    "status": "success",
+                    "action": "register",
+                    "message": "User registered successfully",
+                    "token": token,
+                    "user": {
+                        "id": db_user.id,
+                        "email": db_user.email,
+                        "name": db_user.name
+                    }
                 }
-            }
-            
+                
         finally:
             db.close()
             
