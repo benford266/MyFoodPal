@@ -97,6 +97,48 @@ async def init_database():
         return {"status": "error", "message": str(e)}
 
 
+@app.post("/init-db-simple")
+async def init_database_simple():
+    """Initialize database with simple SQLite approach"""
+    import sqlite3
+    import os
+    
+    try:
+        # Try to create a simple SQLite database in /app
+        db_path = "/app/foodpal_simple.db"
+        conn = sqlite3.connect(db_path)
+        
+        # Create a simple test table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS test_table (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Insert a test record
+        conn.execute("INSERT INTO test_table (name) VALUES (?)", ("test_user",))
+        conn.commit()
+        
+        # Verify the record
+        cursor = conn.execute("SELECT * FROM test_table")
+        records = cursor.fetchall()
+        
+        conn.close()
+        
+        return {
+            "status": "success", 
+            "message": f"Simple database created at {db_path}",
+            "records": records,
+            "file_exists": os.path.exists(db_path),
+            "file_size": os.path.getsize(db_path) if os.path.exists(db_path) else 0
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
