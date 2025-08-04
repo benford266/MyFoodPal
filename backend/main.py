@@ -172,6 +172,27 @@ async def init_database_sqlalchemy():
         return {"status": "error", "message": str(e)}
 
 
+@app.post("/debug-login")
+async def debug_login_request(request):
+    """Debug what the frontend is sending for login"""
+    try:
+        from fastapi import Request
+        
+        # Get request details
+        headers = dict(request.headers)
+        body = await request.body()
+        
+        return {
+            "headers": headers,
+            "body": body.decode() if body else "empty",
+            "method": request.method,
+            "url": str(request.url),
+            "content_type": headers.get("content-type", "missing")
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.post("/test-auth-flow")
 async def test_auth_flow(user_data: dict):
     """Test complete auth flow: register + login"""
