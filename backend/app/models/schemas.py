@@ -30,7 +30,7 @@ class UserResponse(BaseModel):
     is_active: bool
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class Token(BaseModel):
@@ -85,7 +85,7 @@ class MealPlanResponse(BaseModel):
     notes: str
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 # Task Status Schemas
@@ -107,7 +107,7 @@ class GenerationTaskResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 # Export Schemas
@@ -143,4 +143,4 @@ class RecipeRatingResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        from_attributes = True
+        orm_mode = True
