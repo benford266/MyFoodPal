@@ -87,6 +87,16 @@ async def debug_info():
     }
 
 
+@app.post("/init-db")
+async def init_database():
+    """Manually initialize database"""
+    try:
+        create_tables()
+        return {"status": "success", "message": "Database initialized successfully"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
