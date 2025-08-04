@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Application settings"""
     
     # Database
-    DATABASE_URL: str = "sqlite:///./data/foodpal.db"
+    DATABASE_URL: str = "sqlite:///tmp/foodpal.db"
     
     # LM Studio / Ollama Configuration
     LM_STUDIO_BASE_URL: str = "http://localhost:11434"

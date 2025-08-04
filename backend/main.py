@@ -17,8 +17,12 @@ from app.config import settings
 async def lifespan(app: FastAPI):
     """Application lifecycle management"""
     # Startup
-    create_tables()
-    print("🚀 FoodPal Backend Service started")
+    try:
+        create_tables()
+        print("🚀 FoodPal Backend Service started")
+    except Exception as e:
+        print(f"⚠️ Database initialization failed: {e}")
+        print("🚀 FoodPal Backend Service started without database")
     yield
     # Shutdown
     print("🛑 FoodPal Backend Service shutting down")
@@ -57,13 +61,50 @@ async def root():
     return {"message": "FoodPal Backend Service", "status": "healthy"}
 
 
+@app.get("/debug")
+async def debug_info():
+    """Debug information"""
+    import os
+    import pwd
+    
+    try:
+        current_user = pwd.getpwuid(os.getuid()).pw_name
+    except:
+        current_user = "unknown"
+    
+    return {
+        "current_directory": os.getcwd(),
+        "user": current_user,
+        "uid": os.getuid(),
+        "gid": os.getgid(),
+        "database_url": settings.DATABASE_URL,
+        "tmp_exists": os.path.exists("/tmp"),
+        "tmp_writable": os.access("/tmp", os.W_OK),
+        "app_exists": os.path.exists("/app"),
+        "app_writable": os.access("/app", os.W_OK),
+        "files_in_tmp": os.listdir("/tmp") if os.path.exists("/tmp") else "not found",
+        "files_in_app": os.listdir("/app") if os.path.exists("/app") else "not found"
+    }
+
+
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
+    try:
+        # Test database connection
+        from app.database.connection import SessionLocal
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
     return {
         "status": "healthy",
         "service": "foodpal-backend",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "database": db_status
     }
 
 
