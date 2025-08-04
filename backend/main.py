@@ -172,6 +172,63 @@ async def init_database_sqlalchemy():
         return {"status": "error", "message": str(e)}
 
 
+@app.post("/test-register")
+async def test_register(user_data: dict):
+    """Test registration with working database"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from app.database.models import User
+        from passlib.context import CryptContext
+        
+        # Use the working database
+        db_url = "sqlite:////app/foodpal_working.db"
+        engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        
+        # Create password context
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        
+        # Create database session
+        db = SessionLocal()
+        
+        try:
+            # Check if user already exists
+            existing_user = db.query(User).filter(User.email == user_data["email"]).first()
+            if existing_user:
+                return {"status": "error", "message": "Email already registered"}
+            
+            # Hash password
+            hashed_password = pwd_context.hash(user_data["password"])
+            
+            # Create new user
+            db_user = User(
+                email=user_data["email"],
+                hashed_password=hashed_password,
+                name=user_data["name"]
+            )
+            
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+            
+            return {
+                "status": "success",
+                "message": "User registered successfully",
+                "user": {
+                    "id": db_user.id,
+                    "email": db_user.email,
+                    "name": db_user.name
+                }
+            }
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
