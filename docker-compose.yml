@@ -14,7 +14,7 @@ services:
       - COMFYUI_SERVER=${COMFYUI_SERVER:-192.168.4.208:8188}
       - ENABLE_IMAGE_GENERATION=${ENABLE_IMAGE_GENERATION:-true}
       - SECRET_KEY=${SECRET_KEY:-foodpal-secret-key-change-in-production}
-      - ALLOWED_ORIGINS=["http://localhost:3000","http://frontend:3000"]
+      - ALLOWED_ORIGINS=["http://localhost:3000","http://frontend:3000","http://192.168.4.181:3000"]
     volumes:
       - ./media:/app/media
       - db_data:/app/data
@@ -28,7 +28,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://192.168.4.181:8000
     depends_on:
       - backend
     networks:
