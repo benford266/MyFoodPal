@@ -2,7 +2,10 @@
 Backend Configuration
 """
 import os
-from pydantic_settings import BaseSettings
+try:
+    from pydantic_settings import BaseSettings
+except ImportError:
+    from pydantic import BaseSettings
 from typing import List
 
 
@@ -38,6 +41,7 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        case_sensitive = True
 
 
 settings = Settings()
