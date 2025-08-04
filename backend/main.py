@@ -233,13 +233,13 @@ async def test_register(user_data: dict):
 async def health_check():
     """Detailed health check"""
     try:
-        # Test database connection
-        from app.database.connection import SessionLocal
+        # Test database connection using working database
+        from app.database.connection import SessionLocal, WORKING_DATABASE_URL
         from sqlalchemy import text
         db = SessionLocal()
         db.execute(text("SELECT 1"))
         db.close()
-        db_status = "connected"
+        db_status = f"connected to {WORKING_DATABASE_URL}"
     except Exception as e:
         db_status = f"error: {str(e)}"
     
