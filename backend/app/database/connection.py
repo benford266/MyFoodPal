@@ -56,8 +56,9 @@ def create_tables():
         print("✅ Database tables created successfully")
         
         # Verify table creation
+        from sqlalchemy import text
         with engine.connect() as conn:
-            result = conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table';"))
             tables = [row[0] for row in result]
             print(f"📋 Created tables: {', '.join(tables)}")
             
