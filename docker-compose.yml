@@ -16,8 +16,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:-foodpal-secret-key-change-in-production}
       - ALLOWED_ORIGINS=["http://localhost:3000","http://frontend:3000"]
     volumes:
-      - ./backend/media:/app/media
-      - ./backend/foodpal.db:/app/foodpal.db
+      - ./media:/app/media
+      - db_data:/app
     networks:
       - foodpal-network
 

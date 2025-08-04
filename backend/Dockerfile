@@ -15,8 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create media directory for recipe images
+# Create media directory for recipe images and ensure app directory exists
 RUN mkdir -p media
+RUN mkdir -p /app
+RUN chmod 755 /app
 
 # Expose port
 EXPOSE 8000
