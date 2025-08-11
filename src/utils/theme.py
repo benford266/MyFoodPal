@@ -69,18 +69,30 @@ class ThemeManager:
         }}
         
         .loading-shimmer {{
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background: linear-gradient(90deg, {"#2d3748 25%, #4a5568 50%, #2d3748 75%" if self.is_dark else "#f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%"});
             background-size: 200px 100%;
             animation: shimmer 1.5s infinite;
+        }}
+        
+        @keyframes slide {{
+            0% {{ transform: translateX(-100%); }}
+            100% {{ transform: translateX(300%); }}
         }}
         
         /* Micro-interactions */
         .button-interactive {{
             transition: var(--transition-bounce);
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }}
         
         .button-interactive:active {{
             transform: scale(0.95);
+        }}
+        
+        .button-interactive:focus {{
+            outline: 2px solid #10b981;
+            outline-offset: 2px;
         }}
         
         /* Progressive disclosure animations */
@@ -96,6 +108,85 @@ class ThemeManager:
             to {{
                 opacity: 1;
                 transform: translateY(0);
+            }}
+        }}
+        
+        /* Mobile-first responsive design */
+        .touch-target {{
+            min-height: 44px;
+            min-width: 44px;
+        }}
+        
+        .mobile-padding {{
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }}
+        
+        @media (min-width: 768px) {{
+            .mobile-padding {{
+                padding-left: 2rem;
+                padding-right: 2rem;
+            }}
+        }}
+        
+        /* Improved focus states for accessibility */
+        .focus-visible {{
+            outline: 2px solid #10b981;
+            outline-offset: 2px;
+        }}
+        
+        /* Smooth scrolling */
+        html {{
+            scroll-behavior: smooth;
+        }}
+        
+        /* Mobile-optimized touch interactions */
+        .card-interactive {{
+            -webkit-tap-highlight-color: rgba(16, 185, 129, 0.1);
+        }}
+        
+        /* Better mobile form elements */
+        input, textarea, select {{
+            font-size: 16px; /* Prevents zoom on iOS */
+        }}
+        
+        @media (max-width: 768px) {{
+            .mobile-stack {{
+                flex-direction: column !important;
+            }}
+            
+            .mobile-full {{
+                width: 100% !important;
+            }}
+            
+            .mobile-text-sm {{
+                font-size: 0.875rem !important;
+            }}
+            
+            .mobile-p-4 {{
+                padding: 1rem !important;
+            }}
+        }}
+        
+        /* Accessibility improvements */
+        .sr-only {{
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }}
+        
+        /* Reduced motion for users who prefer it */
+        @media (prefers-reduced-motion: reduce) {{
+            *, *::before, *::after {{
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
             }}
         }}
         </style>

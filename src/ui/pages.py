@@ -3,6 +3,9 @@ from fastapi import Depends
 import json
 from datetime import datetime
 from typing import List, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ..database.connection import get_db
 from ..database.operations import (
@@ -14,16 +17,20 @@ from ..database.models import MealPlan, User
 from ..models.schemas import UserCreate, MealPlanCreate
 from ..services.recipe_generator import RecipeGenerator
 from ..utils.session import get_current_user, set_current_user, clear_current_user
-from ..utils.theme import get_theme_classes, get_theme_manager
+from ..utils.improved_theme import get_improved_theme_classes, get_improved_theme_manager
 from .navigation import ModernNavigation, create_floating_action_button, create_bottom_navigation
 from ..utils.shopping_list import generate_shopping_list
 from ..utils.pdf_export import generate_pdf_export
+from ..utils.accessibility import add_accessibility_enhancements, AccessibilityHelper
+from .onboarding import OnboardingSystem, create_enhanced_empty_state
+from ..utils.error_handler import safe_async_ui_operation, UIErrorBoundary, validate_input, VALIDATION_RULES
+from ..utils.resource_manager import managed_database_session, safe_create_task, managed_ui_component
 from ..config import LM_STUDIO_BASE_URL, LM_STUDIO_MODEL
 
 @ui.page('/login')
 def login_page():
-    theme = get_theme_classes()
-    theme_manager = get_theme_manager()
+    theme = get_improved_theme_classes()
+    theme_manager = get_improved_theme_manager()
     theme_manager.apply_theme()
     
     # Add viewport and Material Icons
@@ -227,10 +234,11 @@ def main_page():
         ui.navigate.to('/login')
         return
     
-    theme = get_theme_classes()
+    theme = get_improved_theme_classes()
     
-    # Add viewport
+    # Add viewport and accessibility enhancements
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
+    add_accessibility_enhancements()
     
     # Create recipe generator
     recipe_generator = RecipeGenerator(LM_STUDIO_BASE_URL, LM_STUDIO_MODEL)
@@ -240,8 +248,11 @@ def main_page():
     current_user_data = db.query(User).filter(User.id == current_user['id']).first()
     
     # Modern layout with theme support
-    theme_manager = get_theme_manager()
+    theme_manager = get_improved_theme_manager()
     theme_manager.apply_theme()  # Apply theme CSS
+    
+    # Initialize onboarding system
+    onboarding = OnboardingSystem(theme)
     
     with ui.column().classes(f'min-h-screen {theme["bg_primary"]}'):
         
@@ -249,11 +260,14 @@ def main_page():
         navigation = ModernNavigation(current_user, theme)
         navigation.create_header("home")
         
-        # Main content with modern layout
-        with ui.row().classes('flex-1 p-8 gap-8 max-w-7xl mx-auto w-full'):
+        # Quick tips for new users
+        onboarding.create_quick_tips("home")
+        
+        # Main content with responsive layout
+        with ui.row().classes('flex-1 mobile-padding mobile-stack gap-4 lg:gap-8 max-w-7xl mx-auto w-full mobile-p-4'):
             
-            # Left panel - Smart preferences with modern design
-            with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-8 border {theme["border"]}').style('width: 420px; height: fit-content;'):
+            # Left panel - Smart preferences with mobile-responsive design
+            with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl mobile-p-4 lg:p-8 border {theme["border"]} mobile-full preferences-panel').style('width: 100%; max-width: 420px; height: fit-content;'):
                 # Header with icon
                 with ui.row().classes('items-center gap-3 mb-6'):
                     ui.html(f'''
@@ -263,37 +277,37 @@ def main_page():
                     ''')
                     ui.html(f'<h2 class="text-xl font-bold {theme["gradient_text"]}">Your Preferences</h2>')
                 
-                # Enhanced form inputs with modern styling
+                # Enhanced form inputs with mobile-optimized styling
                 liked_foods_input = ui.textarea(
                     label='Foods You Love',
                     placeholder='e.g., chicken, pasta, vegetables, fresh herbs...',
                     value=current_user_data.liked_foods if current_user_data else ""
-                ).classes(f'{theme["textarea_bg"]} w-full mb-6 rounded-xl border-2 p-4').props('rows=3')
+                ).classes(f'{theme["textarea_bg"]} w-full mb-4 lg:mb-6 rounded-xl border-2 p-3 lg:p-4 touch-target').props('rows=3').style('font-size: 16px;')
                 
                 disliked_foods_input = ui.textarea(
                     label='Foods You Avoid', 
                     placeholder='e.g., mushrooms, seafood, dairy...',
                     value=current_user_data.disliked_foods if current_user_data else ""
-                ).classes(f'{theme["textarea_bg"]} w-full mb-6 rounded-xl border-2 p-4').props('rows=3')
+                ).classes(f'{theme["textarea_bg"]} w-full mb-4 lg:mb-6 rounded-xl border-2 p-3 lg:p-4 touch-target').props('rows=3').style('font-size: 16px;')
                 
                 must_use_input = ui.textarea(
                     label='Must Use (Expiring Soon)',
                     placeholder='e.g., leftover chicken, spinach, tomatoes...',
                     value=current_user_data.must_use_ingredients if hasattr(current_user_data, 'must_use_ingredients') and current_user_data.must_use_ingredients else ""
-                ).classes(f'{theme["textarea_bg"]} w-full mb-6 rounded-xl border-2 p-4').props('rows=2')
+                ).classes(f'{theme["textarea_bg"]} w-full mb-4 lg:mb-6 rounded-xl border-2 p-3 lg:p-4 touch-target').props('rows=2').style('font-size: 16px;')
                 
-                # Recipe configuration with modern inputs
-                with ui.row().classes('gap-4 w-full mb-6'):
-                    with ui.column().classes('flex-1'):
+                # Recipe configuration with mobile-responsive inputs
+                with ui.row().classes('gap-2 lg:gap-4 w-full mb-4 lg:mb-6 mobile-stack'):
+                    with ui.column().classes('flex-1 mobile-full'):
                         ui.html(f'<label class="text-sm font-medium {theme["text_secondary"]} mb-2 block">Number of Recipes</label>')
-                        recipe_count_input = ui.number(value=5, min=1, max=10).classes(f'{theme["input_bg"]} w-full rounded-xl border-2 p-3')
+                        recipe_count_input = ui.number(value=5, min=1, max=10).classes(f'{theme["input_bg"]} w-full rounded-xl border-2 p-3 touch-target').style('font-size: 16px;')
                     
-                    with ui.column().classes('flex-1'):
+                    with ui.column().classes('flex-1 mobile-full'):
                         ui.html(f'<label class="text-sm font-medium {theme["text_secondary"]} mb-2 block">Serving Size</label>')
-                        serving_size_input = ui.number(value=4, min=1, max=12).classes(f'{theme["input_bg"]} w-full rounded-xl border-2 p-3')
+                        serving_size_input = ui.number(value=4, min=1, max=12).classes(f'{theme["input_bg"]} w-full rounded-xl border-2 p-3 touch-target').style('font-size: 16px;')
                 
                 # Generation mode with enhanced styling
-                with ui.card().classes(f'{theme["bg_surface"]} rounded-xl p-6 border {theme["border"]}'):
+                with ui.card().classes(f'{theme["bg_surface"]} rounded-xl p-6 border {theme["border"]} background-mode'):
                     with ui.row().classes('items-center gap-3 mb-3'):
                         ui.html('<span class="text-2xl">⚡</span>')
                         ui.html(f'<span class="text-lg font-semibold {theme["text_primary"]}">Generation Mode</span>')
@@ -330,188 +344,178 @@ def main_page():
                                     ui.html(f'<span class="text-2xl mb-2">{feature["icon"]}</span>')
                                     ui.html(f'<span class="text-sm {theme["text_muted"]} font-medium">{feature["text"]}</span>')
                         
+                        @safe_async_ui_operation(
+                            user_message="Recipe generation failed. Please check your preferences and try again.",
+                            context="Recipe Generation Handler"
+                        )
                         async def generate_recipes_handler():
-                            # Update user preferences in database
                             try:
-                                db = next(get_db())
-                                user = db.query(User).filter(User.id == current_user['id']).first()
-                                if user:
-                                    user.liked_foods = liked_foods_input.value
-                                    user.disliked_foods = disliked_foods_input.value
-                                    user.must_use_ingredients = must_use_input.value
-                                    db.commit()
-                            except Exception as e:
-                                print(f"Error updating preferences: {e}")
-                            
-                            # Check for immediate vs background generation
-                            if not background_mode.value:
-                                # Immediate generation (existing behavior)
-                                await _generate_immediately()
-                            else:
-                                # Background generation (new behavior)
-                                await _generate_in_background()
-                        
-                        async def _generate_immediately():
-                            """Generate recipes immediately with live progress"""
-                            # Show progress
-                            results_container.clear()
-                            with results_container:
-                                with ui.card().classes('p-8 text-center'):
-                                    ui.spinner(size='lg').classes('mb-4')
-                                    ui.label('Generating Your Recipes & Images...').classes('text-xl font-bold mb-4')
-                                    progress_label = ui.label('Getting started...').classes('text-gray-600 mb-2')
-                                    
-                                    # Show breakdown of what we're doing
-                                    recipe_count = int(recipe_count_input.value)
-                                    ui.label(f'Creating {recipe_count} recipes + {recipe_count} images = {recipe_count * 2} total steps').classes('text-sm text-gray-500 mb-4')
-                                    
-                                    progress_bar = ui.linear_progress(value=0).classes('w-full mb-2')
-                                    progress_percentage = ui.label('0%').classes('text-sm text-gray-500')
-                            
-                            # Generate recipes
-                            try:
-                                liked_foods = [f.strip() for f in liked_foods_input.value.split(',') if f.strip()]
-                                disliked_foods = [f.strip() for f in disliked_foods_input.value.split(',') if f.strip()]
-                                must_use_ingredients = [f.strip() for f in must_use_input.value.split(',') if f.strip()]
+                                # Validate inputs first
+                                from ..services.recipe_service import validate_recipe_preferences, RecipeGenerationRequest, create_recipe_service, create_background_recipe_service
                                 
-                                # Enhanced progress tracking for both recipes and images
-                                total_steps = int(recipe_count_input.value) * 2  # recipes + images
-                                current_step = 0
-                                
-                                async def progress_callback(message: str):
-                                    nonlocal current_step
-                                    progress_label.text = message
-                                    
-                                    # Helper function to update progress
-                                    def update_progress(step):
-                                        nonlocal current_step
-                                        current_step = step
-                                        progress_value = current_step / total_steps
-                                        progress_bar.value = progress_value
-                                        progress_percentage.text = f'{int(progress_value * 100)}%'
-                                    
-                                    # Track recipe generation progress
-                                    if "Generating recipe" in message and "/" in message:
-                                        try:
-                                            parts = message.split('/')
-                                            if len(parts) >= 2:
-                                                recipe_num = int(parts[0].split()[-1])
-                                                total_recipes = int(parts[1].split()[0])
-                                                # Recipe generation is first half of progress
-                                                update_progress(recipe_num)
-                                                print(f"📊 Recipe progress: {recipe_num}/{total_recipes} (step {current_step}/{total_steps})")
-                                        except Exception as e:
-                                            print(f"Error parsing recipe progress: {e}")
-                                    
-                                    # Track image generation progress
-                                    elif "Generating image" in message and "/" in message:
-                                        try:
-                                            parts = message.split('/')
-                                            if len(parts) >= 2:
-                                                # Extract numbers from "Generating image X/Y: Recipe Name"
-                                                image_num = int(parts[0].split()[-1])
-                                                total_images = int(parts[1].split(':')[0])
-                                                # Image generation is second half of progress
-                                                update_progress(int(recipe_count_input.value) + image_num)
-                                                print(f"📊 Image progress: {image_num}/{total_images} (step {current_step}/{total_steps})")
-                                        except Exception as e:
-                                            print(f"Error parsing image progress: {e}")
-                                    
-                                    # Handle general progress messages
-                                    elif "Generating recipes..." in message:
-                                        update_progress(0.5)  # Small initial progress
-                                    elif "Generating recipe images..." in message:
-                                        update_progress(int(recipe_count_input.value))
-                                        print(f"📊 Starting image generation (step {current_step}/{total_steps})")
-                                
-                                db = next(get_db())
-                                
-                                recipes = await recipe_generator.generate_recipes_with_images(
-                                    liked_foods, disliked_foods, 
-                                    int(recipe_count_input.value), 
-                                    int(serving_size_input.value),
-                                    progress_callback,
-                                    current_user['id'],
-                                    db,
-                                    must_use_ingredients,
-                                    generate_images=True,
-                                    comfyui_server="192.168.4.208:8188"
+                                liked_list, disliked_list, must_use_list, validated_recipe_count, validated_serving_size = validate_recipe_preferences(
+                                    liked_foods_input.value,
+                                    disliked_foods_input.value,
+                                    must_use_input.value,
+                                    int(recipe_count_input.value),
+                                    int(serving_size_input.value)
                                 )
                                 
-                                # Final progress update
+                                # Update user preferences in database
+                                await _update_user_preferences(liked_foods_input.value, disliked_foods_input.value, must_use_input.value)
+                                
+                                # Create recipe request
+                                request = RecipeGenerationRequest(
+                                    user_id=current_user['id'],
+                                    liked_foods=liked_list,
+                                    disliked_foods=disliked_list,
+                                    must_use_ingredients=must_use_list,
+                                    recipe_count=validated_recipe_count,
+                                    serving_size=validated_serving_size,
+                                    generate_images=True,
+                                    background_mode=background_mode.value
+                                )
+                                
+                                # Choose generation mode
+                                if not background_mode.value:
+                                    await _generate_immediately(request)
+                                else:
+                                    await _generate_in_background(request)
+                                    
+                            except Exception as e:
+                                # Error handling is done by the decorator
+                                raise e
+                        
+                        async def _update_user_preferences(liked_foods: str, disliked_foods: str, must_use_ingredients: str):
+                            """Update user preferences in database"""
+                            try:
+                                with managed_database_session() as db:
+                                    user = db.query(User).filter(User.id == current_user['id']).first()
+                                    if user:
+                                        user.liked_foods = liked_foods
+                                        user.disliked_foods = disliked_foods
+                                        user.must_use_ingredients = must_use_ingredients
+                                        db.commit()
+                            except Exception as e:
+                                logger.error(f"Error updating user preferences: {e}")
+                                # Non-critical error, continue with generation
+                        
+                        async def _generate_immediately(request):
+                            """Generate recipes immediately with live progress using service layer"""
+                            # Show initial loading state
+                            results_container.clear()
+                            
+                            with results_container:
+                                with ui.card().classes(f'{theme["card_elevated"]} p-8 text-center rounded-2xl border {theme["border"]}'):
+                                    ui.spinner(size='lg').classes('mb-4')
+                                    ui.html(f'<h3 class="text-xl font-bold {theme["text_primary"]} mb-4">Generating Your Recipes & Images...</h3>')
+                                    progress_label = ui.html(f'<p class="text-sm {theme["text_secondary"]} mb-4">Getting started...</p>')
+                                    
+                                    progress_bar = ui.linear_progress(value=0).classes('w-full mb-2')
+                                    progress_percentage = ui.html(f'<p class="text-sm {theme["text_muted"]}">0%</p>')
+                            
+                            # Create progress callback
+                            def update_progress_ui(message: str):
+                                progress_label.content = f'<p class="text-sm {theme["text_secondary"]} mb-4">{message}</p>'
+                                
+                                # Simple progress calculation based on message
+                                if "Generating recipe" in message and "/" in message:
+                                    try:
+                                        parts = message.split('/')
+                                        current = int(parts[0].split()[-1])
+                                        total = int(parts[1].split()[0])
+                                        progress = (current / total) * 0.6  # Recipes are 60% of work
+                                        progress_bar.value = progress
+                                        progress_percentage.content = f'<p class="text-sm {theme["text_muted"]}">{int(progress * 100)}%</p>'
+                                    except:
+                                        pass
+                                elif "Generating image" in message and "/" in message:
+                                    try:
+                                        parts = message.split('/')
+                                        current = int(parts[0].split()[-1])
+                                        total = int(parts[1].split(':')[0])
+                                        progress = 0.6 + (current / total) * 0.3  # Images are 30% of work
+                                        progress_bar.value = progress
+                                        progress_percentage.content = f'<p class="text-sm {theme["text_muted"]}">{int(progress * 100)}%</p>'
+                                    except:
+                                        pass
+                                elif "shopping list" in message.lower():
+                                    progress_bar.value = 0.95
+                                    progress_percentage.content = f'<p class="text-sm {theme["text_muted"]}">95%</p>'
+                            
+                            try:
+                                # Use the service layer
+                                from ..services.recipe_service import create_recipe_service
+                                service = create_recipe_service()
+                                
+                                result = await service.generate_recipes(request, update_progress_ui)
+                                
+                                # Final progress
                                 progress_bar.value = 1.0
-                                progress_percentage.text = "100%"
-                                progress_label.text = "Generating shopping list..."
-                                
-                                shopping_list = generate_shopping_list(recipes)
-                                
-                                # Save meal plan
-                                try:
-                                    meal_plan_data = MealPlanCreate(
-                                        name=f"Meal Plan - {datetime.now().strftime('%B %d, %Y')}",
-                                        serving_size=int(serving_size_input.value),
-                                        recipe_count=int(recipe_count_input.value),
-                                        recipes_json=json.dumps(recipes),
-                                        shopping_list_json=json.dumps(shopping_list),
-                                        liked_foods_snapshot=liked_foods_input.value,
-                                        disliked_foods_snapshot=disliked_foods_input.value,
-                                        must_use_ingredients_snapshot=must_use_input.value
-                                    )
-                                    saved_meal_plan = create_meal_plan(db, meal_plan_data, current_user['id'])
-                                except Exception as e:
-                                    print(f"Error saving meal plan: {e}")
+                                progress_percentage.content = f'<p class="text-sm {theme["text_muted"]}">100%</p>'
                                 
                                 # Display results
                                 from .recipe_display import display_recipes_and_shopping_list
-                                display_recipes_and_shopping_list(results_container, recipes, shopping_list, theme, current_user, saved_meal_plan.id if 'saved_meal_plan' in locals() else None)
-                                
-                            except Exception as e:
-                                results_container.clear()
-                                with results_container:
-                                    with ui.card().classes('p-6 text-center border-red-200').style('border-color: #fecaca;'):
-                                        ui.icon('error', size='3rem').classes('text-red-500 mb-4')
-                                        ui.label('Generation Failed').classes('text-lg font-bold text-red-700 mb-2')
-                                        ui.label(str(e)).classes('text-red-600')
-                        
-                        async def _generate_in_background():
-                            """Start background generation and show status"""
-                            try:
-                                # Import background task service
-                                from ..database.operations import create_generation_task
-                                from ..services.background_tasks import start_background_generation
-                                
-                                # Create generation task record
-                                db = next(get_db())
-                                task = create_generation_task(
-                                    db=db,
-                                    user_id=current_user['id'],
-                                    recipe_count=int(recipe_count_input.value),
-                                    serving_size=int(serving_size_input.value),
-                                    liked_foods=liked_foods_input.value,
-                                    disliked_foods=disliked_foods_input.value,
-                                    must_use_ingredients=must_use_input.value
+                                display_recipes_and_shopping_list(
+                                    results_container, 
+                                    result.recipes, 
+                                    result.shopping_list, 
+                                    theme, 
+                                    current_user, 
+                                    result.meal_plan_id
                                 )
                                 
-                                # Start background task
-                                await start_background_generation(task.id)
+                            except Exception as e:
+                                # Error is already handled by the service layer and decorator
+                                from ..ui.components import create_error_state
+                                create_error_state(
+                                    results_container,
+                                    theme,
+                                    "Recipe Generation Failed",
+                                    "Please try again with different preferences.",
+                                    generate_recipes_handler
+                                )
+                        
+                        async def _generate_in_background(request):
+                            """Start background generation and show status using service layer"""
+                            try:
+                                from ..services.recipe_service import create_background_recipe_service
+                                service = create_background_recipe_service()
+                                
+                                task_id = await service.generate_recipes_background(request)
                                 
                                 # Show background generation status
                                 results_container.clear()
                                 with results_container:
-                                    with ui.card().classes('p-8 text-center bg-blue-50'):
-                                        ui.icon('schedule', size='3rem').classes('text-blue-500 mb-4')
-                                        ui.label('Generation Started in Background!').classes('text-xl font-bold text-blue-800 mb-4')
-                                        ui.label(f'Your {int(recipe_count_input.value)} recipes are being generated in the background.').classes('text-blue-600 mb-4')
-                                        ui.label('You can navigate to other pages and we\'ll notify you when complete.').classes('text-blue-600 mb-6')
+                                    with ui.card().classes(f'{theme["card_elevated"]} p-8 text-center rounded-2xl border {theme["border"]}'):
+                                        ui.html('<div class="text-6xl mb-6">⏰</div>')
+                                        ui.html(f'<h3 class="text-2xl font-bold {theme["text_primary"]} mb-4">Generation Started in Background!</h3>')
+                                        ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-4">Your {request.recipe_count} recipes are being generated in the background.</p>')
+                                        ui.html(f'<p class="text-sm {theme["text_muted"]} mb-6">You can navigate to other pages and we\'ll save your results when complete.</p>')
                                         
-                                        with ui.row().classes('gap-4'):
-                                            ui.button('View Meal Plans', on_click=lambda: ui.navigate.to('/history')).props('color=primary')
-                                            ui.button('Check Status', on_click=lambda: _check_task_status(task.id)).props('color=secondary')
+                                        with ui.row().classes('gap-4 justify-center'):
+                                            ui.button(
+                                                'View Meal Plans',
+                                                on_click=lambda: ui.navigate.to('/history')
+                                            ).classes(f'{theme["button_primary"]} px-6 py-3 rounded-xl')
+                                            
+                                            ui.button(
+                                                'Check Status',
+                                                on_click=lambda: _check_task_status(task_id)
+                                            ).classes(f'{theme["button_secondary"]} px-6 py-3 rounded-xl')
                                 
-                                ui.notify(f'Recipe generation started in background (Task #{task.id})', type='positive')
+                                ui.notify(f'Recipe generation started in background (Task #{task_id})', type='positive')
                                 
                             except Exception as e:
-                                ui.notify(f'Failed to start background generation: {str(e)}', type='negative')
+                                logger.error(f"Background generation failed: {e}")
+                                from ..ui.components import create_error_state
+                                create_error_state(
+                                    results_container,
+                                    theme,
+                                    "Background Generation Failed",
+                                    "Unable to start background generation. Please try immediate generation instead.",
+                                    lambda: None
+                                )
                         
                         def _check_task_status(task_id: int):
                             """Check and display task status"""
@@ -534,11 +538,11 @@ def main_page():
                             except Exception as e:
                                 ui.notify(f'Error checking task status: {str(e)}', type='negative')
                         
-                        # Modern generate button
-                        with ui.button(on_click=generate_recipes_handler).classes(f'{theme["button_primary"]} font-bold py-4 px-12 rounded-xl text-lg shadow-lg transition-all duration-300 hover:scale-105'):
-                            with ui.row().classes('items-center gap-3'):
+                        # Modern generate button with enhanced mobile touch
+                        with ui.button(on_click=generate_recipes_handler).classes(f'{theme["button_primary"]} font-bold py-4 px-6 lg:px-12 rounded-xl text-lg shadow-lg transition-all duration-300 hover:scale-105 w-full lg:w-auto touch-target button-interactive generate-button'):
+                            with ui.row().classes('items-center gap-3 justify-center'):
                                 ui.html('<span class="text-2xl">✨</span>')
-                                ui.html('<span>Generate Recipes</span>')
+                                ui.html('<span class="mobile-text-sm lg:text-lg">Generate Recipes</span>')
         
         # Add floating action button for quick access
         create_floating_action_button(theme, generate_recipes_handler)
@@ -554,8 +558,8 @@ def kitchen_page():
         ui.navigate.to('/login')
         return
     
-    theme = get_theme_classes()
-    theme_manager = get_theme_manager()
+    theme = get_improved_theme_classes()
+    theme_manager = get_improved_theme_manager()
     theme_manager.apply_theme()
     
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
@@ -567,6 +571,10 @@ def kitchen_page():
         # Modern navigation header
         navigation = ModernNavigation(current_user, theme)
         navigation.create_header("kitchen")
+        
+        # Initialize onboarding system for kitchen tips
+        onboarding = OnboardingSystem(theme)
+        onboarding.create_quick_tips("kitchen")
         
         # Kitchen Dashboard Content
         with ui.column().classes('flex-1 p-8 max-w-7xl mx-auto w-full'):
@@ -759,8 +767,8 @@ def history_page():
         ui.navigate.to('/login')
         return
     
-    theme = get_theme_classes()
-    theme_manager = get_theme_manager()
+    theme = get_improved_theme_classes()
+    theme_manager = get_improved_theme_manager()
     theme_manager.apply_theme()
     
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
@@ -769,6 +777,10 @@ def history_page():
         # Modern navigation header
         navigation = ModernNavigation(current_user, theme)
         navigation.create_header("plans")
+        
+        # Initialize onboarding system for history tips
+        onboarding = OnboardingSystem(theme)
+        onboarding.create_quick_tips("history")
         
         # Content with modern styling
         with ui.column().classes('flex-1 p-8 max-w-6xl mx-auto w-full'):
@@ -842,20 +854,9 @@ def history_page():
                                     # Arrow indicator
                                     ui.html(f'<div class="{theme["text_muted"]} text-2xl">→</div>')
                 else:
-                    # Modern empty state
-                    with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-16 text-center border {theme["border"]}'):
-                        ui.html(f'''
-                            <div class="w-32 h-32 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center text-6xl mb-8 mx-auto opacity-60">
-                                📋
-                            </div>
-                        ''')
-                        ui.html(f'<h2 class="text-3xl font-bold {theme["text_primary"]} mb-4">No Meal Plans Yet</h2>')
-                        ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-8 max-w-md mx-auto">Start creating personalized recipes to see them here! Each meal plan saves your preferences and makes future planning easier.</p>')
-                        
-                        with ui.button(on_click=lambda: ui.navigate.to('/')).classes(f'{theme["button_primary"]} font-bold py-4 px-8 rounded-xl text-lg shadow-lg transition-all duration-300 hover:scale-105'):
-                            with ui.row().classes('items-center gap-3'):
-                                ui.html('<span class="text-xl">✨</span>')
-                                ui.html('<span>Create First Meal Plan</span>')
+                    # Enhanced empty state with onboarding
+                    empty_container = ui.column().classes('w-full')
+                    create_enhanced_empty_state(empty_container, theme, "no_meal_plans")
         
             except Exception as e:
                 ui.notify(f'Error loading meal plans: {str(e)}', type='negative')
@@ -876,7 +877,9 @@ def meal_plan_detail_page(meal_plan_id: int):
         ui.navigate.to('/login')
         return
     
-    theme = get_theme_classes()
+    theme = get_improved_theme_classes()
+    theme_manager = get_improved_theme_manager()
+    theme_manager.apply_theme()
     
     # Add viewport and Material Icons
     ui.add_head_html('<meta name="viewport" content="width=device-width, initial-scale=1.0">')

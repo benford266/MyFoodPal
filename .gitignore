@@ -5,3 +5,7 @@ CLAUDE*
 __pycache__/*
 *.pyc
 .open
+media/*
+foodpal.db*
+logs/*
+*.md

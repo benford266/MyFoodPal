@@ -35,7 +35,7 @@ def create_modern_recipe_card(
     
     style_config = card_styles.get(card_style, card_styles["default"])
     
-    with ui.card().classes(style_config["container_classes"]) as card:
+    with ui.card().classes(style_config["container_classes"]).props(f'role="article" aria-labelledby="recipe-title-{index}" tabindex="0"') as card:
         # Recipe header section
         with ui.column().classes('w-full mb-6'):
             # Recipe image with modern styling
@@ -124,7 +124,7 @@ def _create_recipe_header(recipe: Dict[str, Any], index: int, theme: Dict[str, s
         # Title and description
         with ui.column().classes('flex-1 min-w-0'):
             ui.html(f'''
-                <h3 class="text-xl font-bold {theme["text_primary"]} mb-1 line-clamp-2">
+                <h3 id="recipe-title-{index}" class="text-xl font-bold {theme["text_primary"]} mb-1 line-clamp-2" role="heading" aria-level="3">
                     {recipe.get("name", "Untitled Recipe")}
                 </h3>
             ''')
@@ -221,8 +221,8 @@ def _create_full_content(recipe: Dict[str, Any], theme: Dict[str, str], show_det
         with ui.column().classes('flex-1'):
             ui.html(f'''
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="text-2xl">🛒</div>
-                    <h4 class="text-lg font-semibold {theme["text_primary"]}">Ingredients</h4>
+                    <div class="text-2xl" aria-hidden="true">🛒</div>
+                    <h4 class="text-lg font-semibold {theme["text_primary"]}" role="heading" aria-level="4">Ingredients</h4>
                 </div>
             ''')
             
@@ -232,8 +232,8 @@ def _create_full_content(recipe: Dict[str, Any], theme: Dict[str, str], show_det
         with ui.column().classes('flex-1'):
             ui.html(f'''
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="text-2xl">👨‍🍳</div>
-                    <h4 class="text-lg font-semibold {theme["text_primary"]}">Instructions</h4>
+                    <div class="text-2xl" aria-hidden="true">👨‍🍳</div>
+                    <h4 class="text-lg font-semibold {theme["text_primary"]}" role="heading" aria-level="4">Instructions</h4>
                 </div>
             ''')
             
@@ -244,12 +244,12 @@ def _create_full_content(recipe: Dict[str, Any], theme: Dict[str, str], show_det
         _create_additional_sections(recipe, theme)
 
 def _create_ingredients_list(recipe: Dict[str, Any], theme: Dict[str, str]):
-    """Create styled ingredients list"""
-    with ui.column().classes('gap-2'):
+    """Create styled ingredients list with proper semantic markup"""
+    with ui.column().classes('gap-2').props('role="list" aria-label="Recipe ingredients"'):
         for ingredient in recipe.get("ingredients", []):
-            with ui.row().classes('items-start gap-3 py-1'):
+            with ui.row().classes('items-start gap-3 py-1').props('role="listitem"'):
                 # Bullet point
-                ui.html(f'<div class="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0 mt-2"></div>')
+                ui.html(f'<div class="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0 mt-2" aria-hidden="true"></div>')
                 
                 # Ingredient text
                 if isinstance(ingredient, dict):
@@ -269,14 +269,14 @@ def _create_ingredients_list(recipe: Dict[str, Any], theme: Dict[str, str]):
                         ui.html(f'<span class="text-sm {theme["text_primary"]} leading-relaxed flex-1">{display_text}</span>')
 
 def _create_instructions_list(recipe: Dict[str, Any], theme: Dict[str, str]):
-    """Create styled instructions list"""
-    with ui.column().classes('gap-3'):
+    """Create styled instructions list with proper semantic markup"""
+    with ui.column().classes('gap-3').props('role="list" aria-label="Recipe instructions"'):
         for j, step in enumerate(recipe.get("instructions", []), 1):
             if step and step.strip():
-                with ui.row().classes('items-start gap-3'):
+                with ui.row().classes('items-start gap-3').props('role="listitem"'):
                     # Step number
                     ui.html(f'''
-                        <div class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-sm" aria-label="Step {j}">
                             {j}
                         </div>
                     ''')
@@ -339,8 +339,8 @@ def _create_rating_section(
                         on_click=lambda idx=index-1, title=recipe.get("name", "Untitled Recipe"), r=star: on_rate(idx, title, r)
                     ).classes(f'''
                         text-lg bg-transparent border-none p-1 hover:scale-110 transition-all duration-200 
-                        cursor-pointer opacity-60 hover:opacity-100 rounded-lg hover:bg-yellow-50
-                    ''').style('min-width: 32px; min-height: 32px;')
+                        cursor-pointer opacity-60 hover:opacity-100 rounded-lg hover:bg-yellow-50 touch-target focus-visible
+                    ''').style('min-width: 44px; min-height: 44px;').props(f'aria-label="Rate recipe {star} star{"s" if star != 1 else ""}" role="button" tabindex="0"')
                     
                     star_labels = {1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent'}
                     star_button.tooltip(f'{star} star{"s" if star != 1 else ""} - {star_labels[star]}')
@@ -380,3 +380,172 @@ def create_loading_recipe_card(theme: Dict[str, str]) -> ui.card:
                     ui.html('<div class="loading-shimmer h-4 w-full rounded mb-2"></div>')
     
     return card
+
+def create_compact_loading_card(theme: Dict[str, str]) -> ui.card:
+    """Create a compact loading skeleton for smaller cards"""
+    with ui.card().classes(f'{theme["card"]} rounded-xl p-4 w-full') as card:
+        # Header skeleton
+        with ui.row().classes('items-center gap-3 mb-3'):
+            ui.html('<div class="loading-shimmer w-8 h-8 rounded-full"></div>')
+            with ui.column().classes('flex-1 gap-1'):
+                ui.html('<div class="loading-shimmer h-4 w-2/3 rounded"></div>')
+                ui.html('<div class="loading-shimmer h-3 w-1/2 rounded"></div>')
+        
+        # Content skeleton
+        with ui.column().classes('gap-2'):
+            for _ in range(2):
+                ui.html('<div class="loading-shimmer h-3 w-full rounded"></div>')
+            ui.html('<div class="loading-shimmer h-3 w-3/4 rounded"></div>')
+    
+    return card
+
+def create_loading_meal_plan_card(theme: Dict[str, str]) -> ui.card:
+    """Create a loading skeleton for meal plan cards"""
+    with ui.card().classes(f'{theme["card_interactive"]} rounded-2xl p-8 border {theme["border"]} w-full') as card:
+        with ui.row().classes('items-start justify-between w-full'):
+            with ui.column().classes('flex-1'):
+                # Header skeleton
+                with ui.row().classes('items-center gap-4 mb-4'):
+                    ui.html('<div class="loading-shimmer w-16 h-16 rounded-xl"></div>')
+                    with ui.column().classes('flex-1 gap-2'):
+                        ui.html('<div class="loading-shimmer h-6 w-3/4 rounded"></div>')
+                        ui.html('<div class="loading-shimmer h-4 w-1/2 rounded"></div>')
+                
+                # Badges skeleton
+                with ui.row().classes('gap-3 mb-4'):
+                    ui.html('<div class="loading-shimmer h-8 w-24 rounded-full"></div>')
+                    ui.html('<div class="loading-shimmer h-8 w-20 rounded-full"></div>')
+                
+                # Preferences skeleton
+                with ui.column().classes('gap-2'):
+                    ui.html('<div class="loading-shimmer h-4 w-full rounded"></div>')
+                    ui.html('<div class="loading-shimmer h-4 w-5/6 rounded"></div>')
+            
+            # Arrow skeleton
+            ui.html('<div class="loading-shimmer w-6 h-6 rounded"></div>')
+    
+    return card
+
+def create_loading_search_results(theme: Dict[str, str], container) -> None:
+    """Create loading skeletons for search results"""
+    with container:
+        ui.html(f'<div class="text-center mb-6"><div class="loading-shimmer h-6 w-48 rounded mx-auto mb-2"></div><div class="loading-shimmer h-4 w-32 rounded mx-auto"></div></div>')
+        
+        with ui.row().classes('gap-4 flex-wrap'):
+            for _ in range(6):
+                create_compact_loading_card(theme)
+
+def create_progressive_loading_state(
+    container, 
+    theme: Dict[str, str], 
+    stage: str = "initializing",
+    progress: float = 0.0,
+    message: str = ""
+) -> None:
+    """Create a progressive loading state with different stages"""
+    container.clear()
+    
+    stages = {
+        "initializing": {"icon": "⚙️", "title": "Initializing", "color": "blue"},
+        "generating": {"icon": "🧠", "title": "Generating Recipes", "color": "emerald"},
+        "processing": {"icon": "⚡", "title": "Processing Content", "color": "purple"},
+        "finalizing": {"icon": "✨", "title": "Finalizing Results", "color": "teal"}
+    }
+    
+    stage_info = stages.get(stage, stages["initializing"])
+    
+    with container:
+        with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-8 text-center border {theme["border"]}'):
+            # Animated icon
+            ui.html(f'''
+                <div class="w-20 h-20 bg-gradient-to-br from-{stage_info["color"]}-100 to-{stage_info["color"]}-200 rounded-full flex items-center justify-center text-4xl mb-6 mx-auto animate-pulse">
+                    {stage_info["icon"]}
+                </div>
+            ''')
+            
+            # Title and message
+            ui.html(f'<h3 class="text-2xl font-bold {theme["text_primary"]} mb-2">{stage_info["title"]}</h3>')
+            if message:
+                ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">{message}</p>')
+            
+            # Progress bar
+            if progress > 0:
+                ui.html(f'<div class="w-full bg-{stage_info["color"]}-100 rounded-full h-3 mb-4">')
+                ui.html(f'<div class="bg-gradient-to-r from-{stage_info["color"]}-500 to-{stage_info["color"]}-600 h-3 rounded-full transition-all duration-300" style="width: {progress}%"></div>')
+                ui.html('</div>')
+                ui.html(f'<p class="text-sm {theme["text_muted"]} font-medium">{int(progress)}% Complete</p>')
+            else:
+                # Indeterminate loading bar
+                ui.html(f'''
+                    <div class="w-full bg-{stage_info["color"]}-100 rounded-full h-3 mb-4 overflow-hidden">
+                        <div class="bg-gradient-to-r from-{stage_info["color"]}-500 to-{stage_info["color"]}-600 h-3 rounded-full animate-pulse" style="width: 40%; animation: slide 2s ease-in-out infinite alternate;"></div>
+                    </div>
+                ''')
+
+def create_error_state(
+    container, 
+    theme: Dict[str, str], 
+    title: str = "Something went wrong",
+    message: str = "Please try again",
+    retry_callback: Optional[Callable] = None
+) -> None:
+    """Create a user-friendly error state with recovery options"""
+    container.clear()
+    
+    with container:
+        with ui.card().classes(f'{theme["error_bg"]} rounded-2xl p-8 text-center border {theme["border"]}'):
+            # Error icon
+            ui.html(f'''
+                <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center text-4xl mb-6 mx-auto">
+                    😕
+                </div>
+            ''')
+            
+            # Error content
+            ui.html(f'<h3 class="text-2xl font-bold {theme["error_text"]} mb-2">{title}</h3>')
+            ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-6">{message}</p>')
+            
+            # Action buttons
+            with ui.row().classes('gap-4 justify-center'):
+                if retry_callback:
+                    ui.button(
+                        'Try Again',
+                        on_click=retry_callback
+                    ).classes(f'{theme["button_primary"]} px-6 py-3 rounded-xl font-medium')
+                
+                ui.button(
+                    'Go Back',
+                    on_click=lambda: ui.navigate.back()
+                ).classes(f'{theme["button_ghost"]} px-6 py-3 rounded-xl font-medium')
+
+def create_empty_state(
+    container,
+    theme: Dict[str, str],
+    title: str = "Nothing here yet",
+    message: str = "Get started by creating your first item",
+    action_text: str = "Get Started",
+    action_callback: Optional[Callable] = None,
+    icon: str = "📦"
+) -> None:
+    """Create an engaging empty state with clear next steps"""
+    container.clear()
+    
+    with container:
+        with ui.card().classes(f'{theme["card_elevated"]} rounded-2xl p-16 text-center border {theme["border"]}'):
+            # Empty state illustration
+            ui.html(f'''
+                <div class="w-32 h-32 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center text-6xl mb-8 mx-auto opacity-60">
+                    {icon}
+                </div>
+            ''')
+            
+            # Content
+            ui.html(f'<h2 class="text-3xl font-bold {theme["text_primary"]} mb-4">{title}</h2>')
+            ui.html(f'<p class="text-lg {theme["text_secondary"]} mb-8 max-w-md mx-auto">{message}</p>')
+            
+            # Action button
+            if action_callback:
+                with ui.button(on_click=action_callback).classes(f'{theme["button_primary"]} font-bold py-4 px-8 rounded-xl text-lg shadow-lg transition-all duration-300 hover:scale-105'):
+                    with ui.row().classes('items-center gap-3'):
+                        ui.html('<span class="text-xl">✨</span>')
+                        ui.html(f'<span>{action_text}</span>')

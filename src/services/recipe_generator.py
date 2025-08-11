@@ -2,13 +2,79 @@ import httpx
 import json
 import re
 import aiohttp
-from typing import List, Dict, Any
+import asyncio
+from typing import List, Dict, Any, Optional
+from contextlib import asynccontextmanager
+import logging
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
+class RecipeGenerationError(Exception):
+    """Custom exception for recipe generation errors"""
+    pass
+
+class APITimeoutError(RecipeGenerationError):
+    """Exception for API timeout errors"""
+    pass
+
+class APIConnectionError(RecipeGenerationError):
+    """Exception for API connection errors"""
+    pass
+
+class CircuitBreaker:
+    """Simple circuit breaker implementation for API resilience"""
+    def __init__(self, failure_threshold: int = 3, recovery_timeout: int = 60):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+    
+    def can_execute(self) -> bool:
+        """Check if we can execute the request"""
+        if self.state == "CLOSED":
+            return True
+        elif self.state == "OPEN":
+            if asyncio.get_event_loop().time() - self.last_failure_time > self.recovery_timeout:
+                self.state = "HALF_OPEN"
+                return True
+            return False
+        else:  # HALF_OPEN
+            return True
+    
+    def record_success(self):
+        """Record successful execution"""
+        self.failure_count = 0
+        self.state = "CLOSED"
+    
+    def record_failure(self):
+        """Record failed execution"""
+        self.failure_count += 1
+        self.last_failure_time = asyncio.get_event_loop().time()
+        if self.failure_count >= self.failure_threshold:
+            self.state = "OPEN"
 
 class RecipeGenerator:
     def __init__(self, lm_studio_url: str, model: str):
         self.lm_studio_url = lm_studio_url
         self.model = model
         self.reset_diversity_tracking()
+        self.circuit_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=60)
+        
+        # HTTP client configuration
+        self.timeout_config = httpx.Timeout(
+            connect=10.0,    # Connection timeout
+            read=120.0,      # Read timeout for LLM responses
+            write=10.0,      # Write timeout
+            pool=5.0         # Pool timeout
+        )
+        
+        self.retry_config = {
+            'max_retries': 2,
+            'backoff_factor': 2,
+            'retry_status_codes': [500, 502, 503, 504]
+        }
     
     def reset_diversity_tracking(self):
         """Reset diversity tracking for a new meal plan"""
@@ -18,15 +84,19 @@ class RecipeGenerator:
                                    existing_ingredients: List[str] = None, progress_callback=None, total_recipes: int = 5, serving_size: int = 4, used_carbs: List[str] = None, user_id: int = None, db_session=None, must_use_ingredients: List[str] = None) -> Dict[str, Any]:
         """Generate a single recipe with cuisine diversity and carb variety"""
         
-        # Simplified cuisine/style selection
-        cuisines = ["Italian", "Asian", "Mexican", "Mediterranean", "Indian", "French", "Thai", "Middle Eastern"]
+        # Enhanced cuisine/style selection with more variety
+        cuisines = [
+            "Italian", "Asian", "Mexican", "Mediterranean", "Indian", "French", "Thai", "Middle Eastern",
+            "Japanese", "Korean", "Vietnamese", "Greek", "Spanish", "Moroccan", "Chinese", "Brazilian", 
+            "Peruvian", "Turkish", "Lebanese", "Ethiopian", "Cajun", "Caribbean", "German", "Russian"
+        ]
         import random
         
         # Get previously used elements to avoid repetition
         used_inspirations = getattr(self, 'used_cooking_inspirations', []) if hasattr(self, 'used_cooking_inspirations') else []
         
         # Select diverse cuisine, avoiding recent ones
-        available_cuisines = [c for c in cuisines if c not in used_inspirations[-3:]]
+        available_cuisines = [c for c in cuisines if c not in used_inspirations[-4:]]
         if not available_cuisines: available_cuisines = cuisines
         
         selected_cuisine = random.choice(available_cuisines)
@@ -54,149 +124,160 @@ class RecipeGenerator:
         if used_carbs:
             carb_text = f"Use a different carbohydrate base than these already used: {', '.join(used_carbs[:2])}. Choose something different like rice, pasta, potatoes, quinoa, etc. "
         
-        # Add some variety to prevent model from getting stuck in patterns
-        recipe_styles = ["hearty", "light and fresh", "comfort food", "restaurant-style", "family-friendly"]
-        import random
-        style_hint = random.choice(recipe_styles)
+        # Enhanced variety with multiple randomization layers
+        recipe_styles = [
+            "hearty", "light and fresh", "comfort food", "restaurant-style", "family-friendly",
+            "gourmet", "rustic", "modern fusion", "traditional", "street food style",
+            "healthy and nutritious", "indulgent", "quick and easy", "impressive dinner party"
+        ]
         
-        # Enhanced prompt with better context and guidance
-        prompt = f"""You are a professional chef creating a delicious {selected_cuisine} dinner recipe for {serving_size} people. Make this a {style_hint} dish.
+        cooking_methods = [
+            "grilled", "roasted", "sautéed", "braised", "steamed", "stir-fried", 
+            "pan-seared", "baked", "slow-cooked", "pressure-cooked", "marinated",
+            "char-grilled", "oven-baked", "pan-roasted", "caramelized"
+        ]
+        
+        flavor_profiles = [
+            "aromatic and spiced", "citrusy and bright", "rich and savory", "smoky and bold",
+            "sweet and tangy", "herbal and fresh", "umami-rich", "spicy and warming",
+            "cooling and refreshing", "earthy and robust", "delicate and nuanced"
+        ]
+        
+        meal_occasions = [
+            "weeknight dinner", "weekend feast", "dinner party", "cozy family meal",
+            "romantic dinner", "casual entertaining", "comfort food craving", "healthy weeknight",
+            "special celebration", "game day meal", "seasonal celebration"
+        ]
+        
+        style_hint = random.choice(recipe_styles)
+        cooking_method = random.choice(cooking_methods)
+        flavor_profile = random.choice(flavor_profiles)
+        meal_occasion = random.choice(meal_occasions)
+        
+        # Create dynamic prompt elements for more variety
+        seasonal_elements = {
+            "spring": ["asparagus", "peas", "artichokes", "spring onions", "fresh herbs"],
+            "summer": ["tomatoes", "zucchini", "bell peppers", "corn", "fresh basil"],
+            "fall": ["squash", "mushrooms", "root vegetables", "apples", "sage"],
+            "winter": ["cabbage", "potatoes", "hearty greens", "citrus", "warming spices"]
+        }
+        
+        current_season = random.choice(list(seasonal_elements.keys()))
+        seasonal_inspiration = random.choice(seasonal_elements[current_season])
+        
+        # Add creative constraints for variety
+        creative_constraints = [
+            "incorporate a surprising ingredient combination",
+            "use an unexpected cooking technique",
+            "add a creative garnish or finishing touch",
+            "include a homemade sauce or marinade",
+            "feature a unique texture contrast",
+            "use a traditional technique in a modern way",
+            "incorporate fermented flavors",
+            "add a signature spice blend"
+        ]
+        
+        constraint = random.choice(creative_constraints)
+        
+        # Enhanced prompt with multiple layers of randomization
+        prompt = f"""You are a {flavor_profile} chef creating an authentic {selected_cuisine} dinner recipe perfect for a {meal_occasion}. This should be a {style_hint} dish that serves {serving_size} people.
+
+CREATIVE DIRECTION:
+- Primary cooking method: {cooking_method}
+- Flavor profile: {flavor_profile}
+- Style: {style_hint}
+- Creative challenge: {constraint}
+- Seasonal inspiration: Consider incorporating {seasonal_inspiration} if it fits the cuisine
+- Make this recipe distinctive and memorable, not generic
 
 REQUIREMENTS:
-- Create a complete, practical recipe that can be cooked at home
 - {must_use_text}{carb_text}{preferences_text}
 - Use realistic ingredient quantities and cooking times
-- Provide clear, step-by-step instructions
-- Ensure the recipe is balanced and nutritious
-- Make this recipe unique and different from typical generic recipes
-- IMPORTANT: Use only ONE expensive protein per recipe (choose either chicken OR beef OR fish OR lamb, never combine multiple expensive proteins)
+- Provide clear, step-by-step instructions that build flavor layers
+- Balance nutrition with taste and visual appeal
+- IMPORTANT: Choose ONE primary protein (chicken/beef/fish/pork/lamb/tofu/legumes) - never mix expensive proteins
+- Include cooking tips and visual cues for success
 
 RESPONSE FORMAT: Return ONLY valid JSON with no additional text or explanations.
 
 {{
-    "name": "Descriptive Recipe Name (e.g., 'Garlic Herb Grilled Chicken with Roasted Vegetables')",
-    "prep_time": "realistic prep time (e.g., '15 minutes')",
-    "cook_time": "realistic cooking time (e.g., '25 minutes')", 
+    "name": "Creative and descriptive recipe name that captures the essence",
+    "prep_time": "realistic prep time in minutes",
+    "cook_time": "realistic cooking time in minutes", 
     "servings": {serving_size},
     "cuisine_inspiration": "{selected_cuisine}",
     "difficulty": "Easy/Medium/Hard",
+    "cooking_method": "{cooking_method}",
+    "flavor_profile": "{flavor_profile}",
     "ingredients": [
-        {{"item": "specific ingredient name", "quantity": "precise amount", "unit": "g/ml/tbsp/tsp/cup/piece"}},
-        {{"item": "single main protein (choose ONE: chicken/beef/fish/pork/lamb/tofu)", "quantity": "400-600", "unit": "g"}},
-        {{"item": "fresh vegetables (be specific)", "quantity": "200-400", "unit": "g"}},
-        {{"item": "carbohydrate (rice/pasta/potatoes)", "quantity": "200-300", "unit": "g"}},
-        {{"item": "seasonings/spices (be specific)", "quantity": "1-2", "unit": "tsp"}},
-        {{"item": "cooking oil/fat", "quantity": "15-30", "unit": "ml"}}
+        {{"item": "specific ingredient with quality notes", "quantity": "precise amount", "unit": "g/ml/tbsp/tsp/cup/piece"}},
+        {{"item": "primary protein (be specific - e.g., 'chicken thighs, bone-in')", "quantity": "400-600", "unit": "g"}},
+        {{"item": "fresh vegetables (name specific varieties)", "quantity": "200-400", "unit": "g"}},
+        {{"item": "carbohydrate base (be specific about type/variety)", "quantity": "200-300", "unit": "g"}},
+        {{"item": "aromatics (onions, garlic, ginger, etc.)", "quantity": "50-100", "unit": "g"}},
+        {{"item": "signature spices/seasonings (be authentic to cuisine)", "quantity": "1-2", "unit": "tsp"}},
+        {{"item": "cooking fat (olive oil, butter, coconut oil, etc.)", "quantity": "15-30", "unit": "ml"}},
+        {{"item": "finishing elements (herbs, acid, garnish)", "quantity": "as needed", "unit": "to taste"}}
     ],
     "instructions": [
-        "Step 1: Detailed preparation instructions with timing",
-        "Step 2: Cooking method with temperature/heat level",
-        "Step 3: Specific cooking techniques and visual cues",
-        "Step 4: How to combine ingredients properly",
-        "Step 5: Final preparation and serving suggestions"
+        "Step 1: Preparation and mise en place with timing notes",
+        "Step 2: Building the flavor base - aromatics and spices",
+        "Step 3: {cooking_method} the protein with technique details",
+        "Step 4: Vegetable preparation and cooking method",
+        "Step 5: Combining elements and final seasoning adjustments",
+        "Step 6: Plating, garnishing, and serving suggestions"
+    ],
+    "chef_tips": [
+        "Key technique tip for success",
+        "Flavor balancing advice",
+        "Visual cue for doneness"
     ]
 }}
 
-Generate a complete, authentic {selected_cuisine} recipe now:"""
+Create an inspiring {selected_cuisine} recipe that embodies {flavor_profile} flavors using the {cooking_method} technique:"""
         
         try:
             if progress_callback:
-                await progress_callback(f"Generating recipe {recipe_number}/{total_recipes}...")
-                
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{self.lm_studio_url}/v1/chat/completions",
-                    headers={"Content-Type": "application/json"},
-                    json={
-                        "model": self.model,
-                        "messages": [
-                            {"role": "user", "content": prompt}
-                        ],
-                        "temperature": 0.7,
-                        "max_tokens": 1000
-                    },
-                    timeout=60.0  # Reduced timeout for simplified prompt
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    from ..utils.recipe_parser import parse_recipe_response
-                    # LM Studio returns response in OpenAI format
-                    content = result['choices'][0]['message']['content']
-                    recipe = parse_recipe_response(content, recipe_number, serving_size)
+                progress_callback(f"Generating recipe {recipe_number}/{total_recipes}...")
+            
+            # Check circuit breaker
+            if not self.circuit_breaker.can_execute():
+                logger.warning(f"Circuit breaker open, using fallback for recipe {recipe_number}")
+                return self._create_enhanced_fallback_recipe(recipe_number, selected_cuisine, serving_size, must_use_ingredients)
+            
+            recipe = await self._make_api_request_with_retry(prompt, recipe_number, serving_size, selected_cuisine, must_use_ingredients)
+            
+            # Check for similarity with user history if available
+            if user_id and db_session and "error" not in recipe:
+                try:
+                    from ..database.operations import check_recipe_similarity, save_recipe_to_history
                     
-                    # Check for similarity with user history if available
-                    if user_id and db_session and "error" not in recipe:
-                        try:
-                            from ..database.operations import check_recipe_similarity, save_recipe_to_history
-                            
-                            # Check if too similar to recent recipes
-                            is_similar = check_recipe_similarity(
-                                db_session, user_id, recipe, 
-                                "simplified", "simplified", "simplified", selected_cuisine
-                            )
-                            
-                            if is_similar:
-                                print(f"🔄 Recipe {recipe_number} too similar to recent history, will need regeneration")
-                                # Could implement retry logic here if needed
-                                recipe["_warning"] = "Similar to recent recipes"
-                            else:
-                                # Save to history for future reference
-                                save_recipe_to_history(
-                                    db_session, user_id, recipe,
-                                    "simplified", "simplified", "simplified", selected_cuisine
-                                )
-                                print(f"✅ Recipe {recipe_number} saved to user history")
-                                
-                        except Exception as e:
-                            print(f"Warning: History check failed for recipe {recipe_number}: {e}")
+                    # Check if too similar to recent recipes
+                    is_similar = check_recipe_similarity(
+                        db_session, user_id, recipe, 
+                        "simplified", "simplified", "simplified", selected_cuisine
+                    )
                     
-                    return recipe
-                else:
-                    return {"error": f"LM Studio API error for recipe {recipe_number}: {response.status_code}"}
+                    if is_similar:
+                        print(f"🔄 Recipe {recipe_number} too similar to recent history, will need regeneration")
+                        recipe["_warning"] = "Similar to recent recipes"
+                    else:
+                        # Save to history for future reference
+                        save_recipe_to_history(
+                            db_session, user_id, recipe,
+                            "simplified", "simplified", "simplified", selected_cuisine
+                        )
+                        print(f"✅ Recipe {recipe_number} saved to user history")
+                        
+                except Exception as e:
+                    print(f"Warning: History check failed for recipe {recipe_number}: {e}")
+            
+            return recipe
         
         except Exception as e:
-            # Return a simple fallback recipe instead of just an error
-            fallback_name = f"Simple Recipe {recipe_number}"
-            if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
-                fallback_name = f"Recipe with {', '.join(must_use_ingredients)}"
-            
-            # Create a more detailed fallback recipe
-            fallback_ingredients = []
-            
-            # Add must-use ingredients if applicable
-            if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
-                for ing in must_use_ingredients:
-                    fallback_ingredients.append({"item": ing, "quantity": "200", "unit": "g"})
-            
-            # Add basic recipe components
-            fallback_ingredients.extend([
-                {"item": "chicken breast or protein of choice", "quantity": "500", "unit": "g"},
-                {"item": "mixed vegetables (carrots, bell peppers, onions)", "quantity": "300", "unit": "g"},
-                {"item": "rice or pasta", "quantity": "250", "unit": "g"},
-                {"item": "olive oil", "quantity": "30", "unit": "ml"},
-                {"item": "salt and pepper", "quantity": "1", "unit": "tsp"},
-                {"item": "garlic powder", "quantity": "1", "unit": "tsp"}
-            ])
-            
-            return {
-                "name": f"Simple Home-Style {selected_cuisine} Dinner",
-                "prep_time": "15 minutes",
-                "cook_time": "25 minutes",
-                "servings": serving_size,
-                "cuisine_inspiration": selected_cuisine,
-                "difficulty": "Easy",
-                "ingredients": fallback_ingredients,
-                "instructions": [
-                    "Heat olive oil in a large skillet over medium-high heat",
-                    "Season protein with salt, pepper, and garlic powder, then cook for 6-8 minutes until golden",
-                    "Add chopped vegetables to the pan and cook for 5-7 minutes until tender",
-                    "Meanwhile, prepare rice or pasta according to package instructions",
-                    "Combine cooked protein and vegetables, adjust seasoning to taste",
-                    "Serve over rice or pasta while hot"
-                ],
-                "_note": f"Fallback recipe generated due to API error: {str(e)}"
-            }
+            # Use the enhanced fallback method for any other errors
+            logger.error(f"Unexpected error in recipe generation: {e}")
+            return self._create_enhanced_fallback_recipe(recipe_number, selected_cuisine, serving_size, must_use_ingredients)
 
     async def generate_recipes(self, liked_foods: List[str], disliked_foods: List[str], recipe_count: int = 5, serving_size: int = 4, progress_callback=None, user_id: int = None, db_session=None, must_use_ingredients: List[str] = None) -> List[Dict[str, Any]]:
         """Generate specified number of recipes one at a time, sharing ingredients where possible and ensuring maximum diversity"""
@@ -273,6 +354,189 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
         
         return recipes
     
+    async def _make_api_request_with_retry(self, prompt: str, recipe_number: int, serving_size: int, cuisine: str, must_use_ingredients: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Make API request with retry logic and proper error handling"""
+        last_exception = None
+        
+        for attempt in range(self.retry_config['max_retries'] + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout_config) as client:
+                    response = await client.post(
+                        f"{self.lm_studio_url}/v1/chat/completions",
+                        headers={"Content-Type": "application/json"},
+                        json={
+                            "model": self.model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.7,
+                            "max_tokens": 1000
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        from ..utils.recipe_parser import parse_recipe_response
+                        content = result['choices'][0]['message']['content']
+                        recipe = parse_recipe_response(content, recipe_number, serving_size)
+                        
+                        if "error" not in recipe:
+                            return recipe
+                        else:
+                            logger.warning(f"Recipe parsing failed for recipe {recipe_number}: {recipe.get('error')}")
+                            last_exception = RecipeGenerationError(f"Recipe parsing failed: {recipe.get('error')}")
+                    
+                    elif response.status_code in self.retry_config['retry_status_codes']:
+                        last_exception = APIConnectionError(f"API returned {response.status_code}: {response.text}")
+                        if attempt < self.retry_config['max_retries']:
+                            await asyncio.sleep(self.retry_config['backoff_factor'] ** attempt)
+                            continue
+                    else:
+                        last_exception = APIConnectionError(f"API error {response.status_code}: {response.text}")
+                        break
+            
+            except httpx.TimeoutException as e:
+                last_exception = APITimeoutError(f"Request timeout for recipe {recipe_number}: {str(e)}")
+                if attempt < self.retry_config['max_retries']:
+                    await asyncio.sleep(self.retry_config['backoff_factor'] ** attempt)
+                    continue
+                break
+                
+            except httpx.ConnectError as e:
+                last_exception = APIConnectionError(f"Connection failed for recipe {recipe_number}: {str(e)}")
+                if attempt < self.retry_config['max_retries']:
+                    await asyncio.sleep(self.retry_config['backoff_factor'] ** attempt)
+                    continue
+                break
+                
+            except Exception as e:
+                last_exception = RecipeGenerationError(f"Unexpected error for recipe {recipe_number}: {str(e)}")
+                break
+        
+        # All retries failed, record failure and return fallback
+        self.circuit_breaker.record_failure()
+        logger.error(f"API request failed after all retries: {last_exception}")
+        return self._create_enhanced_fallback_recipe(recipe_number, cuisine, serving_size, must_use_ingredients)
+    
+    def _create_enhanced_fallback_recipe(self, recipe_number: int, cuisine: str, serving_size: int, must_use_ingredients: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Create an enhanced fallback recipe with much better variety"""
+        import random
+        
+        # Expanded protein options by cuisine
+        proteins_by_cuisine = {
+            "Italian": ["pancetta", "prosciutto", "chicken thighs", "white fish", "mozzarella"],
+            "Asian": ["pork belly", "chicken thighs", "tofu", "shrimp", "beef strips"],
+            "Mexican": ["ground turkey", "chicken breast", "black beans", "chorizo", "fish fillets"],
+            "Mediterranean": ["lamb", "chicken", "white beans", "feta cheese", "sardines"],
+            "Indian": ["chicken thighs", "lamb", "paneer", "lentils", "chickpeas"],
+            "Thai": ["chicken thighs", "shrimp", "tofu", "pork shoulder", "fish sauce"],
+            "Middle Eastern": ["lamb", "chicken", "chickpeas", "ground beef", "halloumi"]
+        }
+        
+        # Varied vegetables by season and cuisine compatibility
+        vegetables_by_style = {
+            "fresh": ["bell peppers", "zucchini", "cherry tomatoes", "snap peas", "cucumber"],
+            "hearty": ["eggplant", "mushrooms", "carrots", "broccoli", "cauliflower"],
+            "leafy": ["spinach", "kale", "chard", "arugula", "bok choy"],
+            "root": ["sweet potatoes", "parsnips", "turnips", "beets", "radishes"]
+        }
+        
+        # Diverse carbohydrate options
+        carbs_by_cuisine = {
+            "Italian": ["pasta", "risotto rice", "polenta", "gnocchi"],
+            "Asian": ["jasmine rice", "noodles", "brown rice", "rice vermicelli"],
+            "Mexican": ["black beans", "quinoa", "corn tortillas", "rice"],
+            "Mediterranean": ["couscous", "bulgur", "orzo", "pita bread"],
+            "Indian": ["basmati rice", "naan bread", "lentils", "chickpeas"],
+            "Thai": ["jasmine rice", "rice noodles", "coconut rice"],
+            "Middle Eastern": ["bulgur", "pita", "rice pilaf", "couscous"]
+        }
+        
+        # Select with cuisine awareness
+        cuisine_proteins = proteins_by_cuisine.get(cuisine, ["chicken breast", "ground beef", "tofu", "salmon"])
+        selected_protein = random.choice(cuisine_proteins)
+        
+        veg_style = random.choice(list(vegetables_by_style.keys()))
+        selected_vegetables = random.sample(vegetables_by_style[veg_style], min(2, len(vegetables_by_style[veg_style])))
+        
+        cuisine_carbs = carbs_by_cuisine.get(cuisine, ["rice", "pasta", "quinoa", "potatoes"])
+        selected_carb = random.choice(cuisine_carbs)
+        
+        # Random cooking methods and flavors for variety
+        cooking_methods = ["sautéed", "roasted", "braised", "grilled", "steamed"]
+        flavor_enhancers = ["garlic and herbs", "ginger and spices", "citrus and herbs", "wine reduction", "coconut and spices"]
+        
+        method = random.choice(cooking_methods)
+        enhancer = random.choice(flavor_enhancers)
+        
+        # Create base ingredients
+        ingredients = []
+        
+        # Add must-use ingredients first if applicable
+        if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
+            for ing in must_use_ingredients:
+                ingredients.append({"item": ing, "quantity": "200", "unit": "g"})
+        
+        # Add standard recipe components
+        ingredients.extend([
+            {"item": selected_protein, "quantity": "500", "unit": "g"},
+            {"item": f"{selected_vegetables[0]} and {selected_vegetables[1]}", "quantity": "400", "unit": "g"},
+            {"item": selected_carb, "quantity": "250", "unit": "g"},
+            {"item": "olive oil", "quantity": "30", "unit": "ml"},
+            {"item": "garlic", "quantity": "3", "unit": "cloves"},
+            {"item": "onion", "quantity": "1", "unit": "medium"},
+            {"item": "salt and black pepper", "quantity": "to taste", "unit": ""},
+        ])
+        
+        # Cuisine-specific additions
+        if cuisine.lower() == "italian":
+            ingredients.extend([
+                {"item": "basil leaves", "quantity": "15", "unit": "g"},
+                {"item": "parmesan cheese", "quantity": "50", "unit": "g"}
+            ])
+        elif cuisine.lower() == "asian":
+            ingredients.extend([
+                {"item": "soy sauce", "quantity": "30", "unit": "ml"},
+                {"item": "ginger", "quantity": "10", "unit": "g"}
+            ])
+        elif cuisine.lower() == "mexican":
+            ingredients.extend([
+                {"item": "cumin", "quantity": "2", "unit": "tsp"},
+                {"item": "lime", "quantity": "1", "unit": "whole"}
+            ])
+        
+        # Create more varied recipe names
+        recipe_names = [
+            f"{method.title()} {selected_protein.title()} with {enhancer.title()}",
+            f"{cuisine} {selected_protein.title()} and {selected_vegetables[0].title()}",
+            f"{selected_protein.title()} {cuisine} Style with {selected_carb.title()}",
+            f"{enhancer.title()} {selected_protein.title()} - {cuisine} Inspired"
+        ]
+        
+        recipe_name = random.choice(recipe_names)
+        if must_use_ingredients and hasattr(self, '_must_use_recipe') and recipe_number == self._must_use_recipe:
+            recipe_name = f"{cuisine} {selected_protein.title()} with {', '.join(must_use_ingredients)}"
+        
+        return {
+            "name": recipe_name,
+            "prep_time": "15 minutes",
+            "cook_time": f"{random.randint(20, 35)} minutes",
+            "servings": serving_size,
+            "cuisine_inspiration": cuisine,
+            "difficulty": "Easy",
+            "ingredients": ingredients,
+            "instructions": [
+                "Heat olive oil in a large skillet over medium-high heat",
+                "Sauté minced garlic and diced onion until fragrant, about 2 minutes",
+                f"Add {selected_protein} and cook until golden brown and cooked through",
+                f"Add {selected_vegetables[0]} and {selected_vegetables[1]}, cook until tender",
+                f"Meanwhile, prepare {selected_carb} according to package instructions",
+                "Season with salt, pepper, and any additional spices to taste",
+                f"Serve the {selected_protein} and vegetables over {selected_carb}",
+                "Garnish as desired and serve hot"
+            ],
+            "_note": f"High-quality fallback recipe (API unavailable) - Recipe #{recipe_number}",
+            "_fallback": True
+        }
+    
     async def generate_recipes_with_images(
         self, 
         liked_foods: List[str], 
@@ -296,7 +560,7 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
         """
         # First generate the recipes
         if progress_callback:
-            await progress_callback("Generating recipes...")
+            progress_callback("Generating recipes...")
         
         recipes = await self.generate_recipes(
             liked_foods, disliked_foods, recipe_count, serving_size, 
@@ -308,7 +572,7 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
             print(f"🔍 Starting image generation for {len(recipes)} recipes...")
             try:
                 if progress_callback:
-                    await progress_callback("Generating recipe images...")
+                    progress_callback("Generating recipe images...")
                 
                 # Import here to avoid dependency issues if not needed
                 print("🔍 Importing ComfyUI client...")
@@ -339,7 +603,7 @@ Generate a complete, authentic {selected_cuisine} recipe now:"""
                     image_results = {}
                     for idx, (recipe_index, recipe) in enumerate(valid_recipes):
                         if progress_callback:
-                            await progress_callback(f"Generating image {idx + 1}/{len(valid_recipes)}: {recipe['name']}")
+                            progress_callback(f"Generating image {idx + 1}/{len(valid_recipes)}: {recipe['name']}")
                         
                         try:
                             image_path = await comfyui_client.generate_recipe_image(

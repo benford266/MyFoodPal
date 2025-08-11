@@ -1,12 +1,12 @@
 from nicegui import ui
 from typing import Dict, List, Callable, Optional
-from ..utils.theme import get_theme_classes, get_theme_manager
+from ..utils.improved_theme import get_improved_theme_classes, get_improved_theme_manager
 
 class ModernNavigation:
     def __init__(self, current_user: Dict, theme: Dict[str, str]):
         self.current_user = current_user
         self.theme = theme
-        self.theme_manager = get_theme_manager()
+        self.theme_manager = get_improved_theme_manager()
         
     def create_header(self, current_page: str = "home") -> ui.row:
         """Create modern header with navigation and theme toggle"""
@@ -58,8 +58,10 @@ class ModernNavigation:
     def _create_user_menu(self):
         """Create user menu with theme toggle and profile options"""
         # Theme toggle button
-        theme_icon = "🌙" if not self.theme_manager.is_dark else "☀️"
-        theme_tooltip = f"Switch to {'dark' if not self.theme_manager.is_dark else 'light'} mode"
+        from ..utils.improved_theme import ThemeMode
+        is_dark = self.theme_manager.mode == ThemeMode.DARK
+        theme_icon = "🌙" if not is_dark else "☀️"
+        theme_tooltip = f"Switch to {'dark' if not is_dark else 'light'} mode"
         
         ui.button(
             theme_icon,
@@ -121,8 +123,8 @@ class ModernNavigation:
     def _toggle_theme(self):
         """Toggle between light and dark themes"""
         self.theme_manager.toggle_theme()
-        # Refresh the page to apply new theme
-        ui.navigate.to(ui.page.request.url.path, new_tab=False)
+        # Refresh the current page to apply new theme
+        ui.run_javascript('window.location.reload()')
     
     def _logout(self):
         """Handle user logout"""
